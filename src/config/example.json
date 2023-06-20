@@ -1,0 +1,65 @@
+{
+  "train_data_path": "../data/features/features_train.csv",
+  "val_data_path": "../data/features/features_val.csv",
+  "test_data_path": "../data/features/features_test.csv",
+  "test_shifted_data_path": "../data/features/features_shifted_test.csv",
+  "multitask": [
+    {
+      "model_name": "multitask_weighted_sum",
+      "epochs": 500,
+      "batch_size": 32,
+      "learning_rate": 1e-4,
+      "weight_decay": 1e-4,
+      "activation": "sigmoid",
+      "dropout": 0.05,
+      "loss": "weighted_sum",
+      "task_losses": ["gauss_nll", "gauss_nll"],
+      "task_weights": [0.4, 0.6]
+    },
+    {
+      "model_name": "multitask_homoscedastic",
+      "epochs": 500,
+      "batch_size": 32,
+      "learning_rate": 1e-4,
+      "weight_decay": 1e-4,
+      "activation": "sigmoid",
+      "dropout": 0.05,
+      "loss": "homoscedastic",
+      "task_losses": ["gauss_nll", "gauss_nll"]
+    }
+  ],
+  "single_task": [
+    {
+      "model_name": "single_task_r",
+      "epochs": 500,
+      "batch_size": 32,
+      "learning_rate": 1e-4,
+      "weight_decay": 1e-4,
+      "activation": "sigmoid",
+      "dropout": 0.05,
+      "target": "r",
+      "loss": "gauss_nll"
+    },
+    {
+      "model_name": "single_task_z",
+      "epochs": 500,
+      "batch_size": 32,
+      "learning_rate": 1e-4,
+      "weight_decay": 1e-4,
+      "activation": "sigmoid",
+      "dropout": 0.05,
+      "target": "z",
+      "loss": "gauss_nll"
+    }
+  ],
+  "uncertainty": {
+    "interval": null,
+    "forward_passes": 100
+  },
+  "ttest": {
+    "spots_min": 100,
+    "spots_max": 4000,
+    "spots_step": 100,
+    "samples": 10000
+  }
+}
