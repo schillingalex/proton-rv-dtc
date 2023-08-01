@@ -38,14 +38,14 @@ class RSPImage(ABC):
     # Used to transform Hounsfield units into RSP values.
     # Taken from the AttenuationRange.dat file used in the simulation of the head_phantom.
     ATTENUATION_RANGES = [
-        (-1010, -200,  RSP_AIR),
+        (-1025, -200,  RSP_AIR),
         (-200,  40,    RSP_SOFT_TISSUE),
         (40,    80,    RSP_BRAIN_TISSUE),
         (80,    190,   RSP_SPINAL_DISC),
         (190,   600,   RSP_TRABECULAR_BONE),
         (600,   1100,  RSP_CORTICAL_BONE),
         (1100,  1800,  RSP_TOOTH_DENTINE),
-        (1800,  2500,  RSP_TOOTH_ENAMEL)
+        (1800,  3100,  RSP_TOOTH_ENAMEL)
     ]
 
     def __init__(self, volume: Optional[np.ndarray] = np.array([272., 168., 200.]),

@@ -84,6 +84,85 @@ def eval_shifted_spots(workdir, run_config: RunConfig, model, X_scaler, y_scaler
     return results, distance_stats
 
 
+def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, targets=None,
+               calibrators=None):
+    results = {}
+    if targets is None:
+        targets = ["water_range", "range_shifted"]
+    confidence_interval = 0.95
+
+    targets_regular = [t.replace("_shifted", "") for t in targets]
+
+    df_other = pd.read_csv(run_config.test_other_data_path)
+    remove_columns = [col for col in df_other.columns if col not in feature_names and col not in targets_regular]
+
+    X_other, y_other = df_to_dataset(df_other, targets_regular, remove_columns, False)
+    X_other = X_scaler.transform(torch.tensor(X_other, dtype=torch.float32, device=run_config.device))
+    y_other = y_scaler.transform(torch.tensor(y_other, dtype=torch.float32, device=run_config.device))
+    other_loader = DataLoader(TensorDataset(X_other, y_other), batch_size=512)
+
+    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
+        model, other_loader, run_config.uncertainty.forward_passes, y_scaler
+    )
+    rmse = np.sqrt(np.mean(ae**2, axis=0))
+    for i in range(len(targets)):
+        results[f"rmse_{i}"] = rmse[i]
+        results[f"mae_{i}"] = mae[i].item()
+        results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], confidence_interval)
+        results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], confidence_interval)
+        results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], confidence_interval)
+
+        if calibrators is not None:
+            ci_calib = calibrators[i].predict(np.array([confidence_interval]))
+            rr_calib = rejection_rate(ae[:, i], std[:, i], ci_calib)
+            results[f"rr_{i}_calib"] = rr_calib
+
+
+    # shifted
+    df_shifted = pd.read_csv(run_config.test_other_shifted_data_path)
+    remove_columns = [col for col in df_shifted.columns if col not in feature_names and col not in targets]
+
+    distances = ((df_shifted["beam_spot_x"] - df_shifted["beam_spot_x_shifted"]) ** 2
+                 + (df_shifted["beam_spot_y"] - df_shifted["beam_spot_y_shifted"]) ** 2) ** 0.5
+    X_shifted, y_shifted = df_to_dataset(df_shifted, targets, remove_columns, False)
+    X_shifted = X_scaler.transform(torch.tensor(X_shifted, dtype=torch.float32, device=run_config.device))
+    y_shifted = y_scaler.transform(torch.tensor(y_shifted, dtype=torch.float32, device=run_config.device))
+    shifted_loader = DataLoader(TensorDataset(X_shifted, y_shifted), batch_size=512)
+
+    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
+        model, shifted_loader, run_config.uncertainty.forward_passes, y_scaler
+    )
+
+    distance_stats = {}
+    for d in distances.unique():
+        distance_stats[d] = []
+    for i in range(X_shifted.shape[0]):
+        distance_stats[distances[i]].append((std_epi[i], std_alea[i], std[i], ae[i]))
+
+    for k, v in distance_stats.items():
+        distance_stats[k] = np.array(v)
+
+    shifted_results = {}
+    for k, v in sorted(distance_stats.items(), key=lambda x: x[0]):
+        distance_results = {}
+        for i in range(v.shape[2]):
+            confidence_interval = 0.95
+            rr_epi = rejection_rate(v[:, 3, i], v[:, 0, i], confidence_interval)
+            rr_alea = rejection_rate(v[:, 3, i], v[:, 1, i], confidence_interval)
+            rr_combined = rejection_rate(v[:, 3, i], v[:, 2, i], confidence_interval)
+            distance_results[f"rr_{i}_epistemic"] = rr_epi
+            distance_results[f"rr_{i}_aleatoric"] = rr_alea
+            distance_results[f"rr_{i}"] = rr_combined
+            if calibrators is not None:
+                ci_calib = calibrators[i].predict(np.array([confidence_interval]))
+                rr_calib = rejection_rate(v[:, 3, i], v[:, 2, i], ci_calib)
+                distance_results[f"rr_{i}_calib"] = rr_calib
+        shifted_results[int(k)] = distance_results
+
+    results["shifted"] = shifted_results
+    return results
+
+
 def eval_task(workdir, run_config: RunConfig, task_config: MLConfig,
               X_train, X_val, X_test, y_train, y_val, y_test,
               X_scaler: TorchStandardScaler, y_scaler: TorchStandardScaler,
@@ -203,6 +282,25 @@ def eval_task(workdir, run_config: RunConfig, task_config: MLConfig,
     pvalues = np.stack(pvalues)
 
     save_fig(plot_shifted_pvalues(spots, pvalues), os.path.join(task_dir, f"ttest_spot_p"))
+
+    if run_config.test_other_data_path is not None:
+        results_other = eval_other(run_config, model, X_scaler, y_scaler, feature_names, targets, calibrators)
+        results_other_shifted = results_other["shifted"]
+        results["other"] = results_other
+
+        for i in range(num_y):
+            rr = [[0, results_other[f"rr_{i}_epistemic"], results_other[f"rr_{i}_aleatoric"], results_other[f"rr_{i}"]]]
+            rr += [[k, v[f"rr_{i}_epistemic"], v[f"rr_{i}_aleatoric"], v[f"rr_{i}"]] for k, v in results_other_shifted.items()]
+            rr_data = np.array(rr)
+            fig = plot_shifted_rejection_rates(rr_data[:, 0], rr_data[:, 1:], ["Epistemic", "Aleatoric", "Combined"])
+            save_fig(fig, os.path.join(task_dir, f"rejection_rates_{i}_other"))
+
+            if val_loader is not None:
+                rr = [[0, results_other[f"rr_{i}"], results_other[f"rr_{i}_calib"]]]
+                rr += [[k, v[f"rr_{i}"], v[f"rr_{i}_calib"]] for k, v in results_other_shifted.items()]
+                rr_data = np.array(rr)
+                fig = plot_shifted_rejection_rates(rr_data[:, 0], rr_data[:, 1:], ["Uncalibrated", "Calibrated"])
+                save_fig(fig, os.path.join(task_dir, f"rejection_rates_{i}_other_calib"))
 
     with open(os.path.join(task_dir, "results.json"), "w") as results_file:
         json.dump(results, results_file)

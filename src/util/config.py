@@ -48,6 +48,8 @@ class RunConfig(ExtendedJsonSerializable):
     test_data_path: str
     val_data_path: Optional[str] = None
     test_shifted_data_path: Optional[str] = None
+    test_other_data_path: Optional[str] = None
+    test_other_shifted_data_path: Optional[str] = None
     purge_workdir: bool = field(default=False, compare = False)
     seed: int = 0
     device: str = field(default="cuda:0", compare = False)

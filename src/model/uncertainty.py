@@ -10,7 +10,7 @@ from util.torch_utils import TorchStandardScaler, enable_dropout
 
 
 def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forward_passes: int,
-                                y_scaler: TorchStandardScaler):
+                                y_scaler: TorchStandardScaler, show_progress=True):
     """
     Takes a PyTorch model with dropout and evaluates the data coming from the given data loader by turning on
     dropout in inference mode and sampling the prediction forward_passes times in order to estimate model uncertainty
@@ -20,6 +20,7 @@ def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forwa
     :param data_loader: The data loader containing the data to evaluate.
     :param forward_passes: The number of stochastic forward passes to sample.
     :param y_scaler: A fitted scaler used to transform the predicted value back to human-interpretable results.
+    :param show_progress: Should the progress be shown through a tqdm progress bar? Default: True
     :return: mean, std, std_epi, std_alea, ae, mae, ground_truth
         mean: Means of the sampled predictions of each example in the dataset.
         std: Standard deviation representing total uncertainty (data + model).
@@ -40,7 +41,10 @@ def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forwa
     model.eval()
     enable_dropout(model)
     with torch.inference_mode():
-        for i, (X, y) in tqdm(list(enumerate(data_loader))):
+        iterator = list(enumerate(data_loader))
+        if show_progress:
+            iterator = tqdm(iterator)
+        for i, (X, y) in iterator:
             ground_truths.append((y_scaler.inverse_transform(y)).cpu().numpy())
             preds = []
             uncerts = []
