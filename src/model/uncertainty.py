@@ -9,7 +9,7 @@ from util.statistics import confidence_to_sigma
 from util.torch_utils import TorchStandardScaler, enable_dropout
 
 
-def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forward_passes: int,
+def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader,
                                 y_scaler: TorchStandardScaler, show_progress=True):
     """
     Takes a PyTorch model with dropout and evaluates the data coming from the given data loader by turning on
@@ -18,7 +18,6 @@ def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forwa
 
     :param model: The PyTorch model to evaluate.
     :param data_loader: The data loader containing the data to evaluate.
-    :param forward_passes: The number of stochastic forward passes to sample.
     :param y_scaler: A fitted scaler used to transform the predicted value back to human-interpretable results.
     :param show_progress: Should the progress be shown through a tqdm progress bar? Default: True
     :return: mean, std, std_epi, std_alea, ae, mae, ground_truth
@@ -30,6 +29,8 @@ def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader, forwa
         mae: Mean absolute error score over the entire dataset.
         ground_truth: Ground truth labels from the data loader.
     """
+    forward_passes = 100
+
     if data_loader.drop_last:
         n_samples = len(data_loader) * data_loader.batch_size
     else:

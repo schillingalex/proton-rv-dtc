@@ -5,12 +5,6 @@ from .json_utils import ExtendedJsonSerializable
 
 
 @dataclass
-class UncertaintyConfig(ExtendedJsonSerializable):
-    interval: Optional[int] = None
-    forward_passes: int = 500
-
-
-@dataclass
 class MLConfig(ExtendedJsonSerializable):
     model_name: str = "model"
     epochs: int = 500
@@ -56,5 +50,4 @@ class RunConfig(ExtendedJsonSerializable):
 
     multitask: List[MultitaskConfig] = field(default_factory=lambda: [MultitaskConfig()])
     single_task: List[SingleTaskConfig] = field(default_factory=lambda: [])
-    uncertainty: UncertaintyConfig = UncertaintyConfig()
     ttest: TTestConfig = TTestConfig()

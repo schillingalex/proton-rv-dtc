@@ -54,10 +54,6 @@
       "loss": "gauss_nll"
     }
   ],
-  "uncertainty": {
-    "interval": null,
-    "forward_passes": 100
-  },
   "ttest": {
     "spots_min": 100,
     "spots_max": 4000,

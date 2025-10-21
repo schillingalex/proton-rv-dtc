@@ -41,9 +41,7 @@ def eval_shifted_spots(workdir, run_config: RunConfig, model, X_scaler, y_scaler
     y_shifted = y_scaler.transform(torch.tensor(y_shifted, dtype=torch.float32, device=run_config.device))
     shifted_loader = DataLoader(TensorDataset(X_shifted, y_shifted), batch_size=512)
 
-    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
-        model, shifted_loader, run_config.uncertainty.forward_passes, y_scaler
-    )
+    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(model, shifted_loader, y_scaler)
 
     distance_stats = {}
     for d in distances.unique():
@@ -101,9 +99,7 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     y_other = y_scaler.transform(torch.tensor(y_other, dtype=torch.float32, device=run_config.device))
     other_loader = DataLoader(TensorDataset(X_other, y_other), batch_size=512)
 
-    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
-        model, other_loader, run_config.uncertainty.forward_passes, y_scaler
-    )
+    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(model, other_loader, y_scaler)
     rmse = np.sqrt(np.mean(ae**2, axis=0))
     for i in range(len(targets)):
         results[f"rmse_{i}"] = rmse[i]
@@ -129,9 +125,7 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     y_shifted = y_scaler.transform(torch.tensor(y_shifted, dtype=torch.float32, device=run_config.device))
     shifted_loader = DataLoader(TensorDataset(X_shifted, y_shifted), batch_size=512)
 
-    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
-        model, shifted_loader, run_config.uncertainty.forward_passes, y_scaler
-    )
+    mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(model, shifted_loader, y_scaler)
 
     distance_stats = {}
     for d in distances.unique():
@@ -204,12 +198,8 @@ def eval_task(workdir, run_config: RunConfig, task_config: MLConfig,
 
     std_val, std_epi_val, std_alea_val, ae_val = None, None, None, None
     if val_loader is not None:
-        _, std_val, std_epi_val, std_alea_val, ae_val, _, _ = get_monte_carlo_predictions(
-            model, val_loader, run_config.uncertainty.forward_passes, y_scaler
-        )
-    mean, std, std_epi, std_alea, ae, mae, gt = get_monte_carlo_predictions(
-        model, test_loader, run_config.uncertainty.forward_passes, y_scaler
-    )
+        _, std_val, std_epi_val, std_alea_val, ae_val, _, _ = get_monte_carlo_predictions(model, val_loader, y_scaler)
+    mean, std, std_epi, std_alea, ae, mae, gt = get_monte_carlo_predictions(model, test_loader, y_scaler)
     rmse = np.sqrt(np.mean(ae**2, axis=0))
     for i in range(num_y):
         results[f"rmse_{i}"] = rmse[i]

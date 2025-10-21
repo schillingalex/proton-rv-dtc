@@ -8,9 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from model.losses import loss_from_task_config
-from model.uncertainty import get_monte_carlo_predictions
 from util.config import RunConfig, MLConfig
-from util.plot_utils import plot_uncertainties
 from util.torch_utils import init_weights, TorchStandardScaler
 
 
@@ -71,7 +69,7 @@ def evaluate(model: nn.Module,
 
 def train_loop(model: nn.Module, train_loader: DataLoader, test_loader: DataLoader, y_scaler: TorchStandardScaler,
                criterion: nn.Module, optimizer: torch.optim.Optimizer, task_config: MLConfig,
-               run_config: RunConfig, writer: Optional[SummaryWriter] = None):
+               writer: Optional[SummaryWriter] = None):
     """
     Trains a given model with the given data according to a run and task config.
 
@@ -82,13 +80,8 @@ def train_loop(model: nn.Module, train_loader: DataLoader, test_loader: DataLoad
     :param criterion: Loss to use for training.
     :param optimizer: Optimizer to use for training.
     :param task_config: TaskConfig defining model name and other training details.
-    :param run_config: RunConfig defining uncertainty configuration and other run details.
     :param writer: Optional SummaryWriter for TensorBoard usage.
     """
-    mc_dropout_interval = task_config.epochs
-    if run_config.uncertainty.interval is not None:
-        mc_dropout_interval = run_config.uncertainty.interval
-
     for epoch in tqdm(range(task_config.epochs)):
         train_loss, train_mae = train(model, train_loader, y_scaler.std, criterion, optimizer)
 
@@ -105,29 +98,6 @@ def train_loop(model: nn.Module, train_loader: DataLoader, test_loader: DataLoad
             if hasattr(criterion, "sigma"):
                 for i in range(criterion.sigma.shape[0]):
                     writer.add_scalar(f"{task_config.model_name}/sigma_{i}", criterion.sigma[i].item(), epoch)
-
-            if (epoch+1) % mc_dropout_interval == 0:
-                mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
-                    model, train_loader, run_config.uncertainty.forward_passes, y_scaler
-                )
-                for i in range(ae.shape[1]):
-                    writer.add_figure(f"{task_config.model_name}/uncert_train_{i}_epi",
-                                      plot_uncertainties(ae[:, i], std_epi[:, i]), epoch)
-                    writer.add_figure(f"{task_config.model_name}/uncert_train_{i}_alea",
-                                      plot_uncertainties(ae[:, i], std_alea[:, i]), epoch)
-                    writer.add_figure(f"{task_config.model_name}/uncert_train_{i}",
-                                      plot_uncertainties(ae[:, i], std[:, i]), epoch)
-
-                mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(
-                    model, test_loader, run_config.uncertainty.forward_passes, y_scaler
-                )
-                for i in range(ae.shape[1]):
-                    writer.add_figure(f"{task_config.model_name}/uncert_test_{i}_epi",
-                                      plot_uncertainties(ae[:, i], std_epi[:, i]), epoch)
-                    writer.add_figure(f"{task_config.model_name}/uncert_test_{i}_alea",
-                                      plot_uncertainties(ae[:, i], std_alea[:, i]), epoch)
-                    writer.add_figure(f"{task_config.model_name}/uncert_test_{i}",
-                                      plot_uncertainties(ae[:, i], std[:, i]), epoch)
 
 
 def load_or_train_model(workdir: str, model: nn.Module, run_config: RunConfig, task_config: MLConfig,
@@ -161,8 +131,7 @@ def load_or_train_model(workdir: str, model: nn.Module, run_config: RunConfig, t
         optimizer = torch.optim.Adam(list(chain(model.parameters(), criterion.parameters())),
                                      lr=task_config.learning_rate, weight_decay=task_config.weight_decay)
 
-        train_loop(model, train_loader, test_loader, y_scaler, criterion, optimizer, task_config, run_config,
-                   writer=writer)
+        train_loop(model, train_loader, test_loader, y_scaler, criterion, optimizer, task_config, writer=writer)
 
         torch.save(model.state_dict(), model_path)
 
