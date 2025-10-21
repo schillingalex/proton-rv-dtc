@@ -1,12 +1,11 @@
-# Uncertainty-aware spot rejection rate as quality metric for proton therapy
+# Overview
 
-Alexander Schilling on behalf of the
-[Bergen pCT collaboration](https://www.uib.no/en/ift/142356/medical-physics-bergen-pct-project)
-and the [SIVERT research training group](https://sivert.info/)
+This is a continuation of the work published in the paper
+"Uncertainty-aware spot rejection rate as quality metric for proton therapy"
+where the original implementation can be found in a frozen state for posterity in
+[SIVERT-pCT/pbs-spot-rejection-rate](https://github.com/SIVERT-pCT/pbs-spot-rejection-rate).
 
-Implementation of the paper "Uncertainty-aware spot rejection rate as quality metric for proton therapy."
-
-## Repository Structure
+# Repository Structure
 
 `src` contains the Python source code. Executable scripts are at the top level and all modules are in sub-directories.
 
@@ -17,7 +16,7 @@ installed via pip:
 
     $ pip install -r requirements.txt
 
-## Simulation Data
+# Simulation Data
 
 36258 treatment spot simulations in an anthropomorphic head phantom (715-HN) (Giacometti et al. 2017)
 and 35673 simulations in a second anthropomorphic head phantom (VHF) (Ackermann et al. 1995)
@@ -28,7 +27,7 @@ The simulation data is publicly available:
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8192778.svg)](https://doi.org/10.5281/zenodo.8192778)
 
-## Feature Generation
+# Feature Generation
 
 > Feature generation requires a MetaImage file of the head phantom you want to use
 > and a Singularity image of the simulation environment (for lateral shift simulation).
@@ -48,17 +47,17 @@ The resulting feature sets (train, validation, test, and shifts) are publicly av
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8192513.svg)](https://doi.org/10.5281/zenodo.8192513)
 
-## Range Verification
+# Range Verification
 
 To run a full evaluation of the range verification method on the above features, run the `eval.py` script:
 
     $ cd src
-    $ python eval.py -c config/example.json -w ../data/eval -d cuda:0
+    $ python eval.py -c config/example.json -w ../eval/test -d cuda:0
 
 The parameters of the run are defined in the configuration file at `src/config/example.json`. This should be adjusted
 to point to the correct feature files. The rest of the parameters are set to reproduce the paper.
 
-## Timing
+# Timing
 
 To measure the runtime of different parts of the implementation, use `timing.py`.
 
@@ -67,7 +66,7 @@ This requires a fully trained model in a given working directory and a number of
     $ cd src
     $ python timing.py -c config/example.json -w ../data/eval -d cuda:0 ../data/sims/*/*.json
 
-## References
+# References
 
 Ackerman M. J., Spitzer V. M., Scherzinger A. L., and Whitlock D. G., 1995.
 The Visible Human data set: an image resource for anatomical visualization
