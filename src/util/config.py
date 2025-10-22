@@ -49,6 +49,9 @@ class RunConfig(ExtendedJsonSerializable):
     seed: int = 0
     device: str = field(default="cuda:0", compare=False)
 
+    # Rejection rate confidence interval
+    rr_ci: float = 0.95
+
     multitask: List[MultitaskConfig] = field(default_factory=lambda: [MultitaskConfig()])
     single_task: List[SingleTaskConfig] = field(default_factory=lambda: [])
     ttest: TTestConfig = TTestConfig()

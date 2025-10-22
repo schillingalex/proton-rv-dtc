@@ -5,6 +5,7 @@
   "test_shifted_data_path": "../data/features/features_shifted_test.csv",
   "test_other_data_path": "../data/features/features-vhf_test.csv",
   "test_other_shifted_data_path": "../data/features/features-vhf_shifted_test.csv",
+  "rr_ci": 0.95,
   "multitask": [
     {
       "model_name": "multitask_weighted_sum",

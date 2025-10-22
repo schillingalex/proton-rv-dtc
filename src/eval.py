@@ -23,6 +23,7 @@ from util.plot_utils import apply_style, save_fig, plot_uncertainties_epi_alea, 
     plot_shifted_rejection_rates, plot_uncertainty_calibration, plot_predictions, plot_error_histogram, \
     plot_errors_in_true_intervals, plot_shifted_pvalues
 from util.preprocessing import df_to_dataset, dataset_to_torch
+from util.statistics import confidence_to_sigma
 from util.torch_utils import TorchStandardScaler
 
 
@@ -58,15 +59,14 @@ def eval_shifted_spots(run_config: RunConfig, model, X_scaler, y_scaler, feature
         ax = axes[int((k-1) / 2)][int((k-1) % 2)]
         distance_results = {}
         for i in range(v.shape[2]):
-            confidence_interval = 0.95
-            rr_epi = rejection_rate(v[:, 3, i], v[:, 0, i], confidence_interval)
-            rr_alea = rejection_rate(v[:, 3, i], v[:, 1, i], confidence_interval)
-            rr_combined = rejection_rate(v[:, 3, i], v[:, 2, i], confidence_interval)
+            rr_epi = rejection_rate(v[:, 3, i], v[:, 0, i], run_config.rr_ci)
+            rr_alea = rejection_rate(v[:, 3, i], v[:, 1, i], run_config.rr_ci)
+            rr_combined = rejection_rate(v[:, 3, i], v[:, 2, i], run_config.rr_ci)
             distance_results[f"rr_{i}_epistemic"] = rr_epi
             distance_results[f"rr_{i}_aleatoric"] = rr_alea
             distance_results[f"rr_{i}"] = rr_combined
             if calibrators is not None:
-                ci_calib = calibrators[i].predict(np.array([confidence_interval]))
+                ci_calib = calibrators[i].predict(np.array([run_config.rr_ci]))
                 rr_calib = rejection_rate(v[:, 3, i], v[:, 2, i], ci_calib)
                 distance_results[f"rr_{i}_calib"] = rr_calib
         plot_uncertainties(v[:, 3, v.shape[2]-1], v[:, 2, v.shape[2]-1], ax=ax)
@@ -76,7 +76,7 @@ def eval_shifted_spots(run_config: RunConfig, model, X_scaler, y_scaler, feature
         ax.set_ylabel("")
 
     axes[int(np.ceil(len(distance_stats)/2))-1, 1].set_xlabel("Absolute error (mm)")
-    axes[0, 0].set_ylabel("$1.96\sigma$")
+    axes[0, 0].set_ylabel(f"${confidence_to_sigma(run_config.rr_ci):.2f}\\sigma$")
     save_fig(fig, os.path.join(run_config.workdir, "uncertainties_shifted"))
 
     return results, distance_stats
@@ -87,7 +87,6 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     results = {}
     if targets is None:
         targets = ["water_range", "range_shifted"]
-    confidence_interval = 0.95
 
     targets_regular = [t.replace("_shifted", "") for t in targets]
 
@@ -104,12 +103,12 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     for i in range(len(targets)):
         results[f"rmse_{i}"] = rmse[i]
         results[f"mae_{i}"] = mae[i].item()
-        results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], confidence_interval)
-        results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], confidence_interval)
-        results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], confidence_interval)
+        results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], run_config.rr_ci)
+        results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], run_config.rr_ci)
+        results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], run_config.rr_ci)
 
         if calibrators is not None:
-            ci_calib = calibrators[i].predict(np.array([confidence_interval]))
+            ci_calib = calibrators[i].predict(np.array([run_config.rr_ci]))
             rr_calib = rejection_rate(ae[:, i], std[:, i], ci_calib)
             results[f"rr_{i}_calib"] = rr_calib
 
@@ -140,15 +139,14 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     for k, v in sorted(distance_stats.items(), key=lambda x: x[0]):
         distance_results = {}
         for i in range(v.shape[2]):
-            confidence_interval = 0.95
-            rr_epi = rejection_rate(v[:, 3, i], v[:, 0, i], confidence_interval)
-            rr_alea = rejection_rate(v[:, 3, i], v[:, 1, i], confidence_interval)
-            rr_combined = rejection_rate(v[:, 3, i], v[:, 2, i], confidence_interval)
+            rr_epi = rejection_rate(v[:, 3, i], v[:, 0, i], run_config.rr_ci)
+            rr_alea = rejection_rate(v[:, 3, i], v[:, 1, i], run_config.rr_ci)
+            rr_combined = rejection_rate(v[:, 3, i], v[:, 2, i], run_config.rr_ci)
             distance_results[f"rr_{i}_epistemic"] = rr_epi
             distance_results[f"rr_{i}_aleatoric"] = rr_alea
             distance_results[f"rr_{i}"] = rr_combined
             if calibrators is not None:
-                ci_calib = calibrators[i].predict(np.array([confidence_interval]))
+                ci_calib = calibrators[i].predict(np.array([run_config.rr_ci]))
                 rr_calib = rejection_rate(v[:, 3, i], v[:, 2, i], ci_calib)
                 distance_results[f"rr_{i}_calib"] = rr_calib
         shifted_results[int(k)] = distance_results
@@ -204,13 +202,12 @@ def eval_task(run_config: RunConfig, task_config: MLConfig,
     for i in range(num_y):
         results[f"rmse_{i}"] = rmse[i]
         results[f"mae_{i}"] = mae[i].item()
-        confidence_interval = 0.95
-        results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], confidence_interval)
-        results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], confidence_interval)
-        results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], confidence_interval)
+        results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], run_config.rr_ci)
+        results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], run_config.rr_ci)
+        results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], run_config.rr_ci)
         if val_loader is not None:
             calibrator = fit_uncertainty_calibrator(ae_val[:, i], std_val[:, i])
-            ci_calib = calibrator.predict(np.array([confidence_interval]))
+            ci_calib = calibrator.predict(np.array([run_config.rr_ci]))
             results[f"rr_{i}_calib"] = rejection_rate(ae[:, i], std[:, i], ci_calib)
 
     for i in range(num_y):
@@ -259,7 +256,7 @@ def eval_task(run_config: RunConfig, task_config: MLConfig,
     distance_stats[0] = np.stack([std_epi, std_alea, std, ae], axis=1)
 
     spots = np.arange(run_config.ttest.spots_min, run_config.ttest.spots_max+1, run_config.ttest.spots_step)
-    ci = 0.95
+    ci = run_config.rr_ci
     if val_loader is not None:
         ci = calibrators[-1].predict([ci])[0]
     pvalues = []

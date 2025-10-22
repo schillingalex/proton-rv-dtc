@@ -133,7 +133,7 @@ def eval_task(run_config: RunConfig, task_config: MLConfig, X, y, y_scaler: Torc
     rejection_rate_times = []
     for _ in tqdm(range(10000), "rr"):
         start_time = time.time()
-        rejection_rate(ae[:, -1], std[:, -1], 0.95)
+        rejection_rate(ae[:, -1], std[:, -1], run_config.rr_ci)
         rejection_rate_times.append(time.time() - start_time)
     results["rejection_rate_mean"] = np.mean(rejection_rate_times)
     results["rejection_rate_std"] = np.std(rejection_rate_times)
