@@ -44,9 +44,10 @@ class RunConfig(ExtendedJsonSerializable):
     test_shifted_data_path: Optional[str] = None
     test_other_data_path: Optional[str] = None
     test_other_shifted_data_path: Optional[str] = None
-    purge_workdir: bool = field(default=False, compare = False)
+    workdir: str = ""
+    purge_workdir: bool = field(default=False, compare=False)
     seed: int = 0
-    device: str = field(default="cuda:0", compare = False)
+    device: str = field(default="cuda:0", compare=False)
 
     multitask: List[MultitaskConfig] = field(default_factory=lambda: [MultitaskConfig()])
     single_task: List[SingleTaskConfig] = field(default_factory=lambda: [])

@@ -5,7 +5,7 @@ import shutil
 from util.config import RunConfig
 
 
-def prepare_run_directory(workdir, run_config: RunConfig):
+def prepare_run_directory(run_config: RunConfig):
     """
     Preparation step of the working directory for an evaluation run.
 
@@ -17,16 +17,15 @@ def prepare_run_directory(workdir, run_config: RunConfig):
 
     Lastly, the configuration is dumped to a JSON file.
 
-    :param workdir: The directory to use for preparation of a run.
-    :param run_config: The configuration used for the run in this workdir.
+    :param run_config: The configuration used for the run, containing the workdir to use.
     """
-    workdir_path = pathlib.Path(workdir)
+    workdir_path = pathlib.Path(run_config.workdir)
     if run_config.purge_workdir:
-        shutil.rmtree(workdir, ignore_errors=True)
+        shutil.rmtree(run_config.workdir, ignore_errors=True)
 
     workdir_path.mkdir(parents=True, exist_ok=True)
 
-    config_path = os.path.join(workdir, "config.json")
+    config_path = os.path.join(run_config.workdir, "config.json")
     if os.path.exists(config_path):
         old_config = RunConfig.from_file(config_path)
         if run_config != old_config:

@@ -96,8 +96,8 @@ def eval_feature_generation(data_files):
     return results, pd.DataFrame(feature_dicts)
 
 
-def eval_task(workdir, run_config: RunConfig, task_config: MLConfig, X, y, y_scaler: TorchStandardScaler):
-    task_dir = os.path.join(workdir, task_config.model_name)
+def eval_task(run_config: RunConfig, task_config: MLConfig, X, y, y_scaler: TorchStandardScaler):
+    task_dir = os.path.join(run_config.workdir, task_config.model_name)
     make_deterministic(run_config.seed)
 
     num_y = 2
@@ -141,12 +141,12 @@ def eval_task(workdir, run_config: RunConfig, task_config: MLConfig, X, y, y_sca
     return results
 
 
-def eval_run_config(workdir, run_config: RunConfig, results, data):
-    x_scaler_path = os.path.join(workdir, "x_scaler.pkl")
+def eval_run_config(run_config: RunConfig, results, data):
+    x_scaler_path = os.path.join(run_config.workdir, "x_scaler.pkl")
     with open(x_scaler_path, "rb") as x_scaler_file:
         X_scaler = pickle.load(x_scaler_file)
 
-    y_scaler_path = os.path.join(workdir, "y_scaler.pkl")
+    y_scaler_path = os.path.join(run_config.workdir, "y_scaler.pkl")
     with open(y_scaler_path, "rb") as y_scaler_file:
         y_scaler = pickle.load(y_scaler_file)
 
@@ -156,13 +156,13 @@ def eval_run_config(workdir, run_config: RunConfig, results, data):
 
     for task_config in run_config.multitask:
         print(f"Evaluating task {task_config.model_name}")
-        results[task_config.model_name] = eval_task(workdir, run_config, task_config, X, y, y_scaler)
+        results[task_config.model_name] = eval_task(run_config.workdir, run_config, task_config, X, y, y_scaler)
 
     for task_config in run_config.single_task:
         print(f"Evaluating task {task_config.model_name}")
-        results[task_config.model_name] = eval_task(workdir, run_config, task_config, X, y, y_scaler)
+        results[task_config.model_name] = eval_task(run_config.workdir, run_config, task_config, X, y, y_scaler)
 
-    with open(os.path.join(workdir, "timing_results.json"), "w") as results_file:
+    with open(os.path.join(run_config.workdir, "timing_results.json"), "w") as results_file:
         json.dump(results, results_file)
 
 
@@ -187,8 +187,9 @@ if __name__ == "__main__":
     results_feature_gen, data = eval_feature_generation(data_files)
 
     config = RunConfig.from_file(args.config_file)
+    config.workdir = args.workdir
     if args.seed is not None:
         config.seed = args.seed
     if args.device is not None:
         config.device = args.device
-    eval_run_config(args.workdir, config, results_feature_gen, data)
+    eval_run_config(config, results_feature_gen, data)

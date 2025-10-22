@@ -26,7 +26,7 @@ from util.preprocessing import df_to_dataset, dataset_to_torch
 from util.torch_utils import TorchStandardScaler
 
 
-def eval_shifted_spots(workdir, run_config: RunConfig, model, X_scaler, y_scaler, feature_names, targets=None,
+def eval_shifted_spots(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, targets=None,
                        calibrators=None) -> (dict, dict):
     if targets is None:
         targets = ["water_range", "range_shifted"]
@@ -77,7 +77,7 @@ def eval_shifted_spots(workdir, run_config: RunConfig, model, X_scaler, y_scaler
 
     axes[int(np.ceil(len(distance_stats)/2))-1, 1].set_xlabel("Absolute error (mm)")
     axes[0, 0].set_ylabel("$1.96\sigma$")
-    save_fig(fig, os.path.join(workdir, "uncertainties_shifted"))
+    save_fig(fig, os.path.join(run_config.workdir, "uncertainties_shifted"))
 
     return results, distance_stats
 
@@ -157,11 +157,11 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     return results
 
 
-def eval_task(workdir, run_config: RunConfig, task_config: MLConfig,
+def eval_task(run_config: RunConfig, task_config: MLConfig,
               X_train, X_val, X_test, y_train, y_val, y_test,
               X_scaler: TorchStandardScaler, y_scaler: TorchStandardScaler,
               feature_names, writer: Optional[SummaryWriter] = None):
-    task_dir = os.path.join(workdir, task_config.model_name)
+    task_dir = os.path.join(run_config.workdir, task_config.model_name)
     pathlib.Path(task_dir).mkdir(exist_ok=True)
 
     make_deterministic(run_config.seed)
@@ -298,8 +298,8 @@ def eval_task(workdir, run_config: RunConfig, task_config: MLConfig,
     return results
 
 
-def eval_run_config(workdir, run_config: RunConfig):
-    prepare_run_directory(workdir, run_config)
+def eval_run_config(run_config: RunConfig):
+    prepare_run_directory(run_config)
 
     df_train = pd.read_csv(run_config.train_data_path)
     df_test = pd.read_csv(run_config.test_data_path)
@@ -314,12 +314,12 @@ def eval_run_config(workdir, run_config: RunConfig):
         X_train, X_test, y_train, y_test, run_config.device, X_val, y_val
     )
 
-    x_scaler_path = os.path.join(workdir, "x_scaler.pkl")
+    x_scaler_path = os.path.join(run_config.workdir, "x_scaler.pkl")
     if not os.path.exists(x_scaler_path):
         with open(x_scaler_path, "wb") as f:
             pickle.dump(X_scaler, f)
 
-    y_scaler_path = os.path.join(workdir, "y_scaler.pkl")
+    y_scaler_path = os.path.join(run_config.workdir, "y_scaler.pkl")
     if not os.path.exists(y_scaler_path):
         with open(y_scaler_path, "wb") as f:
             pickle.dump(y_scaler, f)
@@ -332,14 +332,14 @@ def eval_run_config(workdir, run_config: RunConfig):
     results = {}
     for task_config in run_config.multitask:
         results[task_config.model_name] = eval_task(
-            workdir, run_config, task_config,
+            run_config, task_config,
             X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
         )
         rejection_rate_keys.append(task_config.model_name)
 
     for task_config in run_config.single_task:
         results[task_config.model_name] = eval_task(
-            workdir, run_config, task_config,
+            run_config, task_config,
             X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
         )
         if task_config.target == "z":
@@ -368,11 +368,11 @@ def eval_run_config(workdir, run_config: RunConfig):
         label = label[:1].upper() + label[1:]
         rejection_rate_labels.append(label)
     fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rejection_rate_data, rejection_rate_labels)
-    save_fig(fig, os.path.join(workdir, "rejection_rates"))
+    save_fig(fig, os.path.join(run_config.workdir, "rejection_rates"))
     fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rejection_rate_data_calib, rejection_rate_labels)
-    save_fig(fig, os.path.join(workdir, "rejection_rates_calib"))
+    save_fig(fig, os.path.join(run_config.workdir, "rejection_rates_calib"))
 
-    with open(os.path.join(workdir, "results.json"), "w") as results_file:
+    with open(os.path.join(run_config.workdir, "results.json"), "w") as results_file:
         json.dump(results, results_file)
 
     writer.close()
@@ -391,10 +391,11 @@ if __name__ == "__main__":
     apply_style()
 
     config = RunConfig.from_file(args.config_file)
+    config.workdir = args.workdir
     if args.seed is not None:
         config.seed = args.seed
     if args.device is not None:
         config.device = args.device
     if args.purge:
         config.purge_workdir = True
-    eval_run_config(args.workdir, config)
+    eval_run_config(config)
