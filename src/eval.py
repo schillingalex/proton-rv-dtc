@@ -27,8 +27,8 @@ from util.statistics import confidence_to_sigma
 from util.torch_utils import TorchStandardScaler
 
 
-def eval_shifted_spots(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, targets=None,
-                       calibrators=None) -> (dict, dict):
+def eval_shifted_spots(task_dir: str, run_config: RunConfig, model, X_scaler, y_scaler, feature_names, targets=None,
+                       calibrators=None) -> tuple[dict, dict]:
     if targets is None:
         targets = ["water_range", "range_shifted"]
 
@@ -77,7 +77,7 @@ def eval_shifted_spots(run_config: RunConfig, model, X_scaler, y_scaler, feature
 
     axes[int(np.ceil(len(distance_stats)/2))-1, 1].set_xlabel("Absolute error (mm)")
     axes[0, 0].set_ylabel(f"${confidence_to_sigma(run_config.rr_ci):.2f}\\sigma$")
-    save_fig(fig, os.path.join(run_config.workdir, "uncertainties_shifted"))
+    save_fig(fig, os.path.join(task_dir, "uncertainties_shifted"))
 
     return results, distance_stats
 

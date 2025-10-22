@@ -54,4 +54,4 @@ class RunConfig(ExtendedJsonSerializable):
 
     multitask: List[MultitaskConfig] = field(default_factory=lambda: [MultitaskConfig()])
     single_task: List[SingleTaskConfig] = field(default_factory=lambda: [])
-    ttest: TTestConfig = TTestConfig()
+    ttest: TTestConfig = field(default_factory=lambda: TTestConfig())

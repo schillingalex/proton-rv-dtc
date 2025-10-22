@@ -100,7 +100,7 @@ def train_loop(model: nn.Module, train_loader: DataLoader, test_loader: DataLoad
                     writer.add_scalar(f"{task_config.model_name}/sigma_{i}", criterion.sigma[i].item(), epoch)
 
 
-def load_or_train_model(model: nn.Module, run_config: RunConfig, task_config: MLConfig,
+def load_or_train_model(task_dir: str, model: nn.Module, run_config: RunConfig, task_config: MLConfig,
                         train_loader: DataLoader, test_loader: DataLoader, y_scaler: TorchStandardScaler,
                         writer: Optional[SummaryWriter] = None) -> nn.Module:
     """
@@ -110,6 +110,7 @@ def load_or_train_model(model: nn.Module, run_config: RunConfig, task_config: ML
 
     Task config is used to create the loss and optimizer. Other parameters are passed on to train_loop.
 
+    :param task_dir: The working directory to load the model from or save to after training.
     :param model: PyTorch model to load the state dict for, or train.
     :param run_config: RunConfig to use for training.
     :param task_config: TaskConfig to use for training.
@@ -119,7 +120,7 @@ def load_or_train_model(model: nn.Module, run_config: RunConfig, task_config: ML
     :param writer: Optional SummaryWriter for TensorBoard usage during training.
     :return: Trained model.
     """
-    model_path = os.path.join(run_config.workdir, f"model.pt")
+    model_path = os.path.join(task_dir, f"model.pt")
     if os.path.exists(model_path):
         print("Model already exists, skipping training")
         model.load_state_dict(torch.load(model_path, map_location=run_config.device))

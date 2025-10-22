@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from scipy.stats import ttest_1samp
-from scipy.stats.stats import Ttest_1sampResult
+from scipy.stats._result_classes import TtestResult
 
 from util.statistics import confidence_to_sigma
 
@@ -40,7 +40,7 @@ def rejection_rate(ae: np.ndarray, std: np.ndarray, confidence_interval: float =
 
 
 def get_rejection_p_samples(ae: np.ndarray, std: np.ndarray, spot_count: int = 4000, samples: int = 1000,
-                            confidence_interval: float = 0.95) -> (list, list):
+                            confidence_interval: float = 0.95) -> tuple[list, list]:
     """
     Samples a given number of spots (spot_count) from the absolute errors (ae) of a number of predictions and their
     uncertainties as Gaussian standard deviation (std) a given number of times (samples) to compute the rejection rates
@@ -61,6 +61,6 @@ def get_rejection_p_samples(ae: np.ndarray, std: np.ndarray, spot_count: int = 4
         sample_rej = confidence_to_sigma(confidence_interval) * std[sample_indices] < ae[sample_indices]
         sample_rej = np.array(sample_rej).astype(float)
         rrs.append(np.sum(sample_rej) / sample_rej.shape[0])
-        test_result: Ttest_1sampResult = ttest_1samp(sample_rej, 0.05, alternative="greater")
+        test_result: TtestResult = ttest_1samp(sample_rej, 0.05, alternative="greater")
         pvalues.append(float(test_result.pvalue))
     return rrs, pvalues

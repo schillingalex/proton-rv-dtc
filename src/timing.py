@@ -121,15 +121,13 @@ def eval_task(run_config: RunConfig, task_config: MLConfig, X, y, y_scaler: Torc
     for i in tqdm(range(X.shape[0]), "MCDO"):
         start_time = time.time()
         test_loader = DataLoader(TensorDataset(X[i].unsqueeze(0), y[i].unsqueeze(0)), 1)
-        get_monte_carlo_predictions(model, test_loader, run_config.uncertainty.forward_passes, y_scaler, False)
+        get_monte_carlo_predictions(model, test_loader, y_scaler, False)
         mcdo_sample_times.append(time.time() - start_time)
     results["mcdo_samples_mean"] = np.mean(mcdo_sample_times)
     results["mcdo_samples_std"] = np.std(mcdo_sample_times)
 
     test_loader = DataLoader(TensorDataset(X, y), 512)
-    mean, std, std_epi, std_alea, ae, mae, gt = get_monte_carlo_predictions(
-        model, test_loader, run_config.uncertainty.forward_passes, y_scaler
-    )
+    mean, std, std_epi, std_alea, ae, mae, gt = get_monte_carlo_predictions(model, test_loader, y_scaler)
     rejection_rate_times = []
     for _ in tqdm(range(10000), "rr"):
         start_time = time.time()
@@ -156,11 +154,11 @@ def eval_run_config(run_config: RunConfig, results, data):
 
     for task_config in run_config.multitask:
         print(f"Evaluating task {task_config.model_name}")
-        results[task_config.model_name] = eval_task(run_config.workdir, run_config, task_config, X, y, y_scaler)
+        results[task_config.model_name] = eval_task(run_config, task_config, X, y, y_scaler)
 
     for task_config in run_config.single_task:
         print(f"Evaluating task {task_config.model_name}")
-        results[task_config.model_name] = eval_task(run_config.workdir, run_config, task_config, X, y, y_scaler)
+        results[task_config.model_name] = eval_task(run_config, task_config, X, y, y_scaler)
 
     with open(os.path.join(run_config.workdir, "timing_results.json"), "w") as results_file:
         json.dump(results, results_file)
