@@ -37,7 +37,7 @@ The simulation data is publicly available:
 The raw simulation data can be used to generate features for machine learning through the `generate_features.py` script:
 
     $ cd src
-    $ python generate_features.py -o ../data/features.csv "../data/sims/*/*.json"
+    $ python generate_features.py -o ../data/features.csv --diffuser ../config/diffuser/cauchy.json "../data/sims/*/*.json"
 
 By default, this uses the 715-HN phantom at `data/imageDump.mhd`. `--phantom` and `--rsp-file` can be used to change
 these defaults.

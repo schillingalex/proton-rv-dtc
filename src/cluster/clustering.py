@@ -95,4 +95,10 @@ def generate_cluster_df(df: pd.DataFrame,
         agg[pixel_y_centroid_column] = pd.NamedAgg(column="unique_pixel_identifier", aggfunc=get_row_centroid)
 
     cluster_df = df.groupby(cluster_column_name, group_keys=False, sort=False).agg(**agg)
+
+    px_w = 0.02924
+    px_h = 0.02688
+
+    cluster_df["posX"] = cluster_df[pixel_x_centroid_column] * px_w
+    cluster_df["posY"] = cluster_df[pixel_y_centroid_column] * px_h
     return cluster_df

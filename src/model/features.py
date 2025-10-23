@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
 
+from cluster.clustering import add_cluster_labels, generate_cluster_df
+from cluster.diffusion import Diffuser
 from physics.rsp_image import MetaImageRSPImage
 from util.curve_fits import fits_over_distribution, fit_gaussian
 
@@ -131,6 +133,70 @@ def extract_features_pseudopixels(df: pd.DataFrame, base_features: Optional[dict
     layers = list(range(43))
 
     pixels_dist = [sum(df[df[layer_column] == i]["clusterSize"]) for i in layers]
+    features.update(fits_over_distribution(layers, pixels_dist, "pixels", normalize=False))
+
+    clusters_dist = [len(df[df[layer_column] == i]) for i in layers]
+    features.update(fits_over_distribution(layers, clusters_dist, "clusters", normalize=False))
+
+    edep_dist = [sum(df[df[layer_column] == i]["edep"]) for i in layers]
+    features.update(fits_over_distribution(layers, edep_dist, "edep", normalize=False))
+
+    for i in range(len(pixels_dist)):
+        features[f"pixels_layer_{i}"] = pixels_dist[i]
+    for i in range(len(clusters_dist)):
+        features[f"clusters_layer_{i}"] = clusters_dist[i]
+    for i in range(len(edep_dist)):
+        features[f"edep_layer_{i}"] = edep_dist[i]
+
+    layer_groups = df.groupby(layer_column)
+    x_mean_dist = layer_groups["posX"].mean()
+    x_std_dist = layer_groups["posX"].std()
+    y_mean_dist = layer_groups["posY"].mean()
+    y_std_dist = layer_groups["posY"].std()
+
+    for i in range(len(x_mean_dist)):
+        features[f"x_mean_layer_{i}"] = x_mean_dist[i]
+    for i in range(len(x_std_dist)):
+        features[f"x_std_layer_{i}"] = x_std_dist[i]
+    for i in range(len(y_mean_dist)):
+        features[f"y_mean_layer_{i}"] = y_mean_dist[i]
+    for i in range(len(y_std_dist)):
+        features[f"y_std_layer_{i}"] = y_std_dist[i]
+
+    return features
+
+
+def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features: Optional[dict] = None) -> dict:
+    layer_column = "layer"
+
+    features = {}
+    if isinstance(base_features, dict):
+        features.update(base_features)
+
+    diffused = diffuser.diffuse_hits(df)
+    diffused["group_column"] = diffused["eventID"] * 100 + diffused["layer"]
+    clustered = add_cluster_labels(diffused)
+    df = generate_cluster_df(clustered)
+    df = df[df["size"] > 1]
+
+    features["pixels"] = df["size"].sum()
+    features["clusters"] = len(df)
+
+    features["cluster_size_mean"] = df["size"].mean()
+    features["cluster_size_std"] = df["size"].std()
+
+    cs_hist, _ = np.histogram(df["size"].values, bins=np.arange(1, 73) + 0.5)
+    for i in range(len(cs_hist)):
+        features[f"cs_{i+2}"] = cs_hist[i]
+
+    features["x_mean"] = df["posX"].mean()
+    features["x_std"] = df["posX"].std()
+    features["y_mean"] = df["posY"].mean()
+    features["y_std"] = df["posY"].std()
+
+    layers = list(range(43))
+
+    pixels_dist = [sum(df[df[layer_column] == i]["size"]) for i in layers]
     features.update(fits_over_distribution(layers, pixels_dist, "pixels", normalize=False))
 
     clusters_dist = [len(df[df[layer_column] == i]) for i in layers]

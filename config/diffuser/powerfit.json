@@ -4,5 +4,5 @@
     "a": 4.2267,
     "b": 0.65
   },
-  "cache_filename": "hits_powerfit.npy"
+  "cache_filename": "features_powerfit.pkl"
 }

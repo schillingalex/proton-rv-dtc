@@ -89,7 +89,7 @@ class RSPImage(ABC):
         self.volume = volume
         self.offset = offset
         self.voxel_size = voxel_size
-        self.voxel_count = (self.volume / self.voxel_size).astype(int)
+        self.voxel_count = tuple((self.volume / self.voxel_size).astype(int))
         self.rotation_angle = rotation_angle
         self.rotation_axis = rotation_axis
         self.padding_value = padding_value

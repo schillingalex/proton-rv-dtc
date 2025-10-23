@@ -4,5 +4,5 @@
     "gamma": 0.0047,
     "eta": 0.6964
   },
-  "cache_filename": "hits_cauchy.npy"
+  "cache_filename": "features_cauchy.pkl"
 }

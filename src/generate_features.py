@@ -16,15 +16,29 @@ from multiprocessing import Pool
 import pandas as pd
 import numpy as np
 import json
+import pickle
 from tqdm import tqdm
 
 import model.features as f
+from cluster.diffusion import Diffuser
 from physics.rsp_image import MetaImageRSPImage
+from util.config import DiffuserConfig
 
 rsp_arrays = {}
 
 
-def extract_feature_dict_from_file(file, shift_x, shift_y, phantom="head"):
+def init_pool(shared_rsp_arrays):
+    global rsp_arrays
+    rsp_arrays = shared_rsp_arrays
+
+
+def extract_feature_dict_from_file(file, shift_x, shift_y, diffuser: Diffuser, cache_filename: str,
+                                   phantom="head") -> dict:
+    features_file_path = os.path.join(os.path.dirname(file), cache_filename)
+    if os.path.exists(features_file_path):
+        with open(features_file_path, "rb") as features_file:
+            return pickle.load(features_file)
+
     metadata: dict
     with open(file) as metafile:
         metadata = json.load(metafile)
@@ -81,11 +95,14 @@ def extract_feature_dict_from_file(file, shift_x, shift_y, phantom="head"):
 
     data_file = os.path.join(os.path.dirname(file), metadata["output"]["output_files"][0])
     df = pd.DataFrame(np.load(data_file))
-    features = f.extract_features_pseudopixels(df, base_features)
+    features = f.extract_features_pixels(df, diffuser, base_features)
 
-    rsp = rsp_arrays[pra]
+    rsp = rsp_arrays[int(pra)]
     rsp_features = f.extract_features_rsp(rsp, beam_spot_x, beam_spot_sigma_x, beam_spot_y, beam_spot_sigma_y)
     features.update(rsp_features)
+
+    with open(features_file_path, "wb") as features_file:
+        pickle.dump(features, features_file)
     return features
 
 
@@ -122,6 +139,8 @@ if __name__ == "__main__":
                         help="The phantom to use in simulations to get ground truth for shifts. Default: head")
     parser.add_argument("--rsp-file", dest="rsp_file", type=str, default="../data/imageDump.mhd",
                         help="Path to MetaImage file to use for RSP features. Default: ../data/imageDump.mhd")
+    parser.add_argument("--diffuser", dest="diffuser", type=str, default="../config/diffuser/cauchy.json",
+                        help="Diffuser configuration file")
     parser.add_argument("file_pattern", metavar="file_pattern", type=str, help="The JSON file pattern to glob.")
     args = parser.parse_args()
 
@@ -138,26 +157,42 @@ if __name__ == "__main__":
     phantom = args.phantom
     rsp_file = args.rsp_file
 
+    diffuser_config = DiffuserConfig.from_file(args.diffuser)
+    diffuser = diffuser_config.new_instance()
+    cache_filename = diffuser_config.cache_filename
+
+    shared_rsp_arrays = {}
     for pra in tqdm(range(0, 360, 30), "Load RSP"):
         rsp_image = MetaImageRSPImage(rsp_file, rotation_angle=pra)
-        rsp_arrays[pra] = rsp_image.get_world_voxels()
+        shared_rsp_arrays[pra] = rsp_image.get_world_voxels()
 
-    with Pool(processes=64) as pool, tqdm(total=len(files) * max(1, (shift - shift_from + 1)*4)) as progress_bar:
+    with (Pool(processes=6, initializer=init_pool, initargs=(shared_rsp_arrays,)) as pool,
+          tqdm(total=len(files) * max(1, (shift - shift_from + 1)*4)) as progress_bar):
         results = []
         for file in files:
             if shift == 0:
-                results.append(pool.apply_async(extract_feature_dict_from_file, (file, 0, 0, phantom),
-                                                callback=lambda _: progress_bar.update(1)))
+                results.append(pool.apply_async(
+                    extract_feature_dict_from_file, (file, 0, 0, diffuser, cache_filename, phantom),
+                    callback=lambda _: progress_bar.update(1)
+                ))
             else:
                 for shift_i in range(shift_from, shift + 1):
-                    results.append(pool.apply_async(extract_feature_dict_from_file, (file, shift_i, 0, phantom),
-                                                    callback=lambda _: progress_bar.update(1)))
-                    results.append(pool.apply_async(extract_feature_dict_from_file, (file, -shift_i, 0, phantom),
-                                                    callback=lambda _: progress_bar.update(1)))
-                    results.append(pool.apply_async(extract_feature_dict_from_file, (file, 0, shift_i, phantom),
-                                                    callback=lambda _: progress_bar.update(1)))
-                    results.append(pool.apply_async(extract_feature_dict_from_file, (file, 0, -shift_i, phantom),
-                                                    callback=lambda _: progress_bar.update(1)))
+                    results.append(pool.apply_async(
+                        extract_feature_dict_from_file, (file, shift_i, 0, diffuser, cache_filename, phantom),
+                        callback=lambda _: progress_bar.update(1)
+                    ))
+                    results.append(pool.apply_async(
+                        extract_feature_dict_from_file, (file, -shift_i, 0, diffuser, cache_filename, phantom),
+                        callback=lambda _: progress_bar.update(1)
+                    ))
+                    results.append(pool.apply_async(
+                        extract_feature_dict_from_file, (file, 0, shift_i, diffuser, cache_filename, phantom),
+                        callback=lambda _: progress_bar.update(1)
+                    ))
+                    results.append(pool.apply_async(
+                        extract_feature_dict_from_file, (file, 0, -shift_i, diffuser, cache_filename, phantom),
+                        callback=lambda _: progress_bar.update(1)
+                    ))
 
         [r.wait() for r in results]
 
