@@ -1,6 +1,9 @@
+import json
 import os
 import pathlib
 import shutil
+import numpy as np
+import pandas as pd
 
 from util.config import RunConfig
 
@@ -32,3 +35,26 @@ def prepare_run_directory(run_config: RunConfig):
             raise ValueError("Trying to use an existing workdir with a different configuration.")
 
     run_config.to_file(config_path)
+
+
+def metadata_in_directory(path):
+    for f in os.listdir(path):
+        if f.endswith(".json"):
+            with open(os.path.join(path, f)) as json_file:
+                return json.load(json_file)
+    raise FileNotFoundError(f"No metadata file in path {path}")
+
+
+def hits_file_in_directory(path):
+    metadata = metadata_in_directory(path)
+    if "output" in metadata:
+        if "output_files" in metadata["output"]:
+            output_file = metadata["output"]["output_files"][0]
+            return output_file
+    raise KeyError(f"No hits file specified in metadata {metadata}")
+
+
+def hits_in_directory(path):
+    output_file = hits_file_in_directory(path)
+    hits = pd.DataFrame(np.load(os.path.join(path, output_file)))
+    return hits
