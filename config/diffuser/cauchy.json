@@ -1,0 +1,8 @@
+{
+  "classname": "cluster.diffusion.CauchyKernelDiffuser",
+  "args": {
+    "gamma": 0.0047,
+    "eta": 0.6964
+  },
+  "cache_filename": "hits_cauchy.npy"
+}

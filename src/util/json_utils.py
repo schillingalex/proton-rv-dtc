@@ -1,4 +1,7 @@
+from dataclasses import dataclass
 from jsons import JsonSerializable
+
+from util.import_utils import instance_from_string
 
 
 class ExtendedJsonSerializable(JsonSerializable):
@@ -25,3 +28,13 @@ class ExtendedJsonSerializable(JsonSerializable):
         """
         with open(path, "w") as f:
             f.write(self.dumps())
+
+
+@dataclass
+class InstantiableJsonSerializable(ExtendedJsonSerializable):
+    classname: str
+    args: dict
+
+    def new_instance(self, **kwargs):
+        instance = instance_from_string(self.classname, **self.args, **kwargs)
+        return instance

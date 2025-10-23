@@ -1,7 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 
-from .json_utils import ExtendedJsonSerializable
+from .json_utils import ExtendedJsonSerializable, InstantiableJsonSerializable
+
+
+@dataclass
+class DiffuserConfig(InstantiableJsonSerializable):
+    cache_filename: str = None
 
 
 @dataclass
