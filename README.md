@@ -11,6 +11,8 @@ where the original implementation can be found in a frozen state for posterity i
 
 `data` contains supplementary data and the directory is used as output of the scripts.
 
+`config` contains example configuration files for various scripts.
+
 Everything is implemented in Python with the required 3rd-party libraries listed in requirements.txt, which can be
 installed via pip:
 
@@ -52,9 +54,9 @@ The resulting feature sets (train, validation, test, and shifts) are publicly av
 To run a full evaluation of the range verification method on the above features, run the `eval.py` script:
 
     $ cd src
-    $ python eval.py -c config/example.json -w ../eval/test -d cuda:0
+    $ python eval.py -c ../config/example.json -w ../eval/test -d cuda:0
 
-The parameters of the run are defined in the configuration file at `src/config/example.json`. This should be adjusted
+The parameters of the run are defined in the configuration file at `config/example.json`. This should be adjusted
 to point to the correct feature files. The rest of the parameters are set to reproduce the paper.
 
 # Timing
@@ -64,7 +66,7 @@ To measure the runtime of different parts of the implementation, use `timing.py`
 This requires a fully trained model in a given working directory and a number of input simulation metafiles.
 
     $ cd src
-    $ python timing.py -c config/example.json -w ../data/eval -d cuda:0 ../data/sims/*/*.json
+    $ python timing.py -c ../config/example.json -w ../data/eval -d cuda:0 ../data/sims/*/*.json
 
 # References
 
