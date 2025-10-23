@@ -4,4 +4,4 @@ eval
 *.csv
 *.mhd
 *.raw
-src/runs
+runs
