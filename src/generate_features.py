@@ -141,6 +141,7 @@ if __name__ == "__main__":
                         help="Path to MetaImage file to use for RSP features. Default: ../data/imageDump.mhd")
     parser.add_argument("--diffuser", dest="diffuser", type=str, default="../config/diffuser/cauchy.json",
                         help="Diffuser configuration file")
+    parser.add_argument("-j", "--jobs", dest="jobs", type=int, default=1, help="Number of jobs to run in parallel")
     parser.add_argument("file_pattern", metavar="file_pattern", type=str, help="The JSON file pattern to glob.")
     args = parser.parse_args()
 
@@ -166,7 +167,7 @@ if __name__ == "__main__":
         rsp_image = MetaImageRSPImage(rsp_file, rotation_angle=pra)
         shared_rsp_arrays[pra] = rsp_image.get_world_voxels()
 
-    with (Pool(processes=6, initializer=init_pool, initargs=(shared_rsp_arrays,)) as pool,
+    with (Pool(processes=args.jobs, initializer=init_pool, initargs=(shared_rsp_arrays,)) as pool,
           tqdm(total=len(files) * max(1, (shift - shift_from + 1)*4)) as progress_bar):
         results = []
         for file in files:
