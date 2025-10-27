@@ -6,7 +6,7 @@ from .json_utils import ExtendedJsonSerializable, InstantiableJsonSerializable
 
 @dataclass
 class DiffuserConfig(InstantiableJsonSerializable):
-    cache_filename: str = None
+    pass
 
 
 @dataclass

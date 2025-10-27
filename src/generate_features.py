@@ -141,6 +141,9 @@ if __name__ == "__main__":
                         help="Path to MetaImage file to use for RSP features. Default: ../data/imageDump.mhd")
     parser.add_argument("--diffuser", dest="diffuser", type=str, default="../config/diffuser/cauchy.json",
                         help="Diffuser configuration file")
+    parser.add_argument("--cache-features", dest="cache_features", type=str, default="features.pkl",
+                        help="Name of the file to store the features of each simulation, so we can interrupt and"
+                             "generate further at a later time. Optional, default: features.pkl")
     parser.add_argument("-j", "--jobs", dest="jobs", type=int, default=1, help="Number of jobs to run in parallel")
     parser.add_argument("file_pattern", metavar="file_pattern", type=str, help="The JSON file pattern to glob.")
     args = parser.parse_args()
@@ -160,7 +163,7 @@ if __name__ == "__main__":
 
     diffuser_config = DiffuserConfig.from_file(args.diffuser)
     diffuser = diffuser_config.new_instance()
-    cache_filename = diffuser_config.cache_filename
+    cache_features = args.cache_features
 
     shared_rsp_arrays = {}
     for pra in tqdm(range(0, 360, 30), "Load RSP"):
@@ -173,25 +176,25 @@ if __name__ == "__main__":
         for file in files:
             if shift == 0:
                 results.append(pool.apply_async(
-                    extract_feature_dict_from_file, (file, 0, 0, diffuser, cache_filename, phantom),
+                    extract_feature_dict_from_file, (file, 0, 0, diffuser, cache_features, phantom),
                     callback=lambda _: progress_bar.update(1)
                 ))
             else:
                 for shift_i in range(shift_from, shift + 1):
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, shift_i, 0, diffuser, cache_filename, phantom),
+                        extract_feature_dict_from_file, (file, shift_i, 0, diffuser, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, -shift_i, 0, diffuser, cache_filename, phantom),
+                        extract_feature_dict_from_file, (file, -shift_i, 0, diffuser, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, shift_i, diffuser, cache_filename, phantom),
+                        extract_feature_dict_from_file, (file, 0, shift_i, diffuser, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, -shift_i, diffuser, cache_filename, phantom),
+                        extract_feature_dict_from_file, (file, 0, -shift_i, diffuser, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
 
