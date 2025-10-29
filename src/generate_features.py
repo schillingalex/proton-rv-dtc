@@ -25,15 +25,16 @@ from physics.rsp_image import MetaImageRSPImage
 from util.config import DiffuserConfig
 
 rsp_arrays = {}
+diffuser: Diffuser
 
 
-def init_pool(shared_rsp_arrays):
-    global rsp_arrays
+def init_pool(shared_rsp_arrays, shared_diffuser: Diffuser):
+    global rsp_arrays, diffuser
     rsp_arrays = shared_rsp_arrays
+    diffuser = shared_diffuser
 
 
-def extract_feature_dict_from_file(file, shift_x, shift_y, diffuser: Diffuser, cache_filename: str,
-                                   phantom="head") -> dict:
+def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, phantom="head") -> dict:
     features_file_path = os.path.join(os.path.dirname(file), cache_filename)
     if os.path.exists(features_file_path):
         with open(features_file_path, "rb") as features_file:
@@ -162,7 +163,7 @@ if __name__ == "__main__":
     rsp_file = args.rsp_file
 
     diffuser_config = DiffuserConfig.from_file(args.diffuser)
-    diffuser = diffuser_config.new_instance()
+    shared_diffuser = diffuser_config.new_instance()
     cache_features = args.cache_features
 
     shared_rsp_arrays = {}
@@ -170,31 +171,31 @@ if __name__ == "__main__":
         rsp_image = MetaImageRSPImage(rsp_file, rotation_angle=pra)
         shared_rsp_arrays[pra] = rsp_image.get_world_voxels()
 
-    with (Pool(processes=args.jobs, initializer=init_pool, initargs=(shared_rsp_arrays,)) as pool,
+    with (Pool(processes=args.jobs, initializer=init_pool, initargs=(shared_rsp_arrays, shared_diffuser)) as pool,
           tqdm(total=len(files) * max(1, (shift - shift_from + 1)*4)) as progress_bar):
         results = []
         for file in files:
             if shift == 0:
                 results.append(pool.apply_async(
-                    extract_feature_dict_from_file, (file, 0, 0, diffuser, cache_features, phantom),
+                    extract_feature_dict_from_file, (file, 0, 0, cache_features, phantom),
                     callback=lambda _: progress_bar.update(1)
                 ))
             else:
                 for shift_i in range(shift_from, shift + 1):
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, shift_i, 0, diffuser, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, shift_i, 0, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, -shift_i, 0, diffuser, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, -shift_i, 0, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, shift_i, diffuser, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, 0, shift_i, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, -shift_i, diffuser, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, 0, -shift_i, cache_features, phantom),
                         callback=lambda _: progress_bar.update(1)
                     ))
 
