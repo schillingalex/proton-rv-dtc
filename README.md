@@ -16,7 +16,9 @@ where the original implementation can be found in a frozen state for posterity i
 Everything is implemented in Python with the required 3rd-party libraries listed in requirements.txt, which can be
 installed via pip:
 
-    $ pip install -r requirements.txt
+```bash
+pip install -r requirements.txt
+```
 
 # Simulation Data
 
@@ -36,8 +38,10 @@ The simulation data is publicly available:
 
 The raw simulation data can be used to generate features for machine learning through the `generate_features.py` script:
 
-    $ cd src
-    $ python generate_features.py -o ../data/features.csv --diffuser ../config/diffuser/cauchy.json "../data/sims/*/*.json"
+```bash
+cd src
+python generate_features.py -o ../data/features.csv --diffuser ../config/diffuser/cauchy.json "../data/sims/*/*.json"
+```
 
 By default, this uses the 715-HN phantom at `data/imageDump.mhd`. `--phantom` and `--rsp-file` can be used to change
 these defaults.
@@ -53,8 +57,10 @@ The resulting feature sets (train, validation, test, and shifts) are publicly av
 
 To run a full evaluation of the range verification method on the above features, run the `eval.py` script:
 
-    $ cd src
-    $ python eval.py -c ../config/example.json -w ../eval/test -d cuda:0
+```bash
+cd src
+python eval.py -c ../config/example.json -w ../eval/test -d cuda:0
+```
 
 The parameters of the run are defined in the configuration file at `config/example.json`. This should be adjusted
 to point to the correct feature files. The rest of the parameters are set to reproduce the paper.
@@ -65,8 +71,10 @@ To measure the runtime of different parts of the implementation, use `timing.py`
 
 This requires a fully trained model in a given working directory and a number of input simulation metafiles.
 
-    $ cd src
-    $ python timing.py -c ../config/example.json -w ../data/eval -d cuda:0 ../data/sims/*/*.json
+```bash
+cd src
+python timing.py -c ../config/example.json -w ../data/eval -d cuda:0 ../data/sims/*/*.json
+```
 
 # References
 
