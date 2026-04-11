@@ -202,15 +202,15 @@ def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features:
     clusters_dist = [len(df[df[layer_column] == i]) for i in layers]
     features.update(fits_over_distribution(layers, clusters_dist, "clusters", normalize=False))
 
-    edep_dist = [sum(df[df[layer_column] == i]["edep"]) for i in layers]
-    features.update(fits_over_distribution(layers, edep_dist, "edep", normalize=False))
+    # edep_dist = [sum(df[df[layer_column] == i]["edep"]) for i in layers]
+    # features.update(fits_over_distribution(layers, edep_dist, "edep", normalize=False))
 
     for i in range(len(pixels_dist)):
         features[f"pixels_layer_{i}"] = pixels_dist[i]
     for i in range(len(clusters_dist)):
         features[f"clusters_layer_{i}"] = clusters_dist[i]
-    for i in range(len(edep_dist)):
-        features[f"edep_layer_{i}"] = edep_dist[i]
+    # for i in range(len(edep_dist)):
+    #     features[f"edep_layer_{i}"] = edep_dist[i]
 
     layer_groups = df.groupby(layer_column)
     x_mean_dist = layer_groups["posX"].mean()
