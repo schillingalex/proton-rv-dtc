@@ -23,6 +23,7 @@ import model.features as f
 from cluster.diffusion import Diffuser
 from physics.rsp_image import MetaImageRSPImage
 from util.config import DiffuserConfig
+from util.system_utils import is_software_available
 
 rsp_arrays = {}
 diffuser: Diffuser
@@ -34,7 +35,8 @@ def init_pool(shared_rsp_arrays, shared_diffuser: Diffuser):
     diffuser = shared_diffuser
 
 
-def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, phantom="head") -> dict:
+def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, phantom="head",
+                                   container_image: str = "../data/simulation-environment_e938dc1.sif") -> dict:
     features_file_path = os.path.join(os.path.dirname(file), cache_filename)
     if os.path.exists(features_file_path):
         with open(features_file_path, "rb") as features_file:
@@ -76,15 +78,17 @@ def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, 
 
         # Simulate treatment for the shifted position in order to determine the actual planned spot.
         # We only need stopping statistics in the phantom, so 2e4 primaries are sufficient.
-        image_path = "../data/simulation-environment_e938dc1.sif"
         primaries = 20000
         tempdir = os.path.join("../data/workdirs/", str(uuid4()))
         os.mkdir(tempdir)
-        subprocess.run(["singularity", "run", "-B", f"{tempdir}:/output", image_path, "-dc", "-dp",
-                        "--phantom", phantom, "-p", str(primaries), "-e", str(energy), "-pra", str(pra),
-                        "--beam-spot-x", str(beam_spot_x), "--beam-spot-y", str(beam_spot_y),
-                        "--record-phantom-prod-stop"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        sim_args = ["-dc", "-dp", "--phantom", phantom, "-p", str(primaries), "-e", str(energy), "-pra", str(pra),
+                    "--beam-spot-x", str(beam_spot_x), "--beam-spot-y", str(beam_spot_y), "--record-phantom-prod-stop"]
+        if is_software_available("singularity"):
+            subprocess.run(["singularity", "run", "-B", f"{tempdir}:/output", container_image] + sim_args,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif is_software_available("docker"):
+            subprocess.run(["docker", "run", "-v", f"{tempdir}:/output", container_image] + sim_args,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         tempfiles = os.listdir(tempdir)
         for tempfile in tempfiles:
@@ -136,6 +140,9 @@ if __name__ == "__main__":
     parser.add_argument("--ref", dest="reference_file", metavar="reference_file", type=str, default="", required=False,
                         help="Path to a CSV file containing the original features for the spots to shift."
                              "Optional, filters file_pattern when given. Ignored if shift=0.")
+    parser.add_argument("--container_image", dest="container_image", metavar="container_image", type=str,
+                        default="datahub.rz.rptu.de:5050/sivert/science/simulation-environment:e938dc19", required=False,
+                        help="Path to Singularity image or tag of Docker image, if Singularity is not available")
     parser.add_argument("--phantom", dest="phantom", type=str, default="head",
                         help="The phantom to use in simulations to get ground truth for shifts. Default: head")
     parser.add_argument("--rsp-file", dest="rsp_file", type=str, default="../data/imageDump.mhd",
@@ -161,6 +168,7 @@ if __name__ == "__main__":
 
     phantom = args.phantom
     rsp_file = args.rsp_file
+    container_image = args.container_image
 
     diffuser_config = DiffuserConfig.from_file(args.diffuser)
     shared_diffuser = diffuser_config.new_instance()
@@ -171,31 +179,33 @@ if __name__ == "__main__":
         rsp_image = MetaImageRSPImage(rsp_file, rotation_angle=pra)
         shared_rsp_arrays[pra] = rsp_image.get_world_voxels()
 
+    aux_args = [cache_features, phantom, container_image]
+
     with (Pool(processes=args.jobs, initializer=init_pool, initargs=(shared_rsp_arrays, shared_diffuser)) as pool,
           tqdm(total=len(files) * max(1, (shift - shift_from + 1)*4)) as progress_bar):
         results = []
         for file in files:
             if shift == 0:
                 results.append(pool.apply_async(
-                    extract_feature_dict_from_file, (file, 0, 0, cache_features, phantom),
+                    extract_feature_dict_from_file, (file, 0, 0, *aux_args),
                     callback=lambda _: progress_bar.update(1)
                 ))
             else:
                 for shift_i in range(shift_from, shift + 1):
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, shift_i, 0, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, shift_i, 0, *aux_args),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, -shift_i, 0, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, -shift_i, 0, *aux_args),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, shift_i, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, 0, shift_i, *aux_args),
                         callback=lambda _: progress_bar.update(1)
                     ))
                     results.append(pool.apply_async(
-                        extract_feature_dict_from_file, (file, 0, -shift_i, cache_features, phantom),
+                        extract_feature_dict_from_file, (file, 0, -shift_i, *aux_args),
                         callback=lambda _: progress_bar.update(1)
                     ))
 
