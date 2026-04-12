@@ -140,8 +140,8 @@ if __name__ == "__main__":
     parser.add_argument("--ref", dest="reference_file", metavar="reference_file", type=str, default="", required=False,
                         help="Path to a CSV file containing the original features for the spots to shift."
                              "Optional, filters file_pattern when given. Ignored if shift=0.")
-    parser.add_argument("--container_image", dest="container_image", metavar="container_image", type=str,
-                        default="datahub.rz.rptu.de:5050/sivert/science/simulation-environment:e938dc19", required=False,
+    parser.add_argument("--container-image", dest="container_image", metavar="container_image", type=str,
+                        default="../data/simulation-environment_e938dc1.sif", required=False,
                         help="Path to Singularity image or tag of Docker image, if Singularity is not available")
     parser.add_argument("--phantom", dest="phantom", type=str, default="head",
                         help="The phantom to use in simulations to get ground truth for shifts. Default: head")
