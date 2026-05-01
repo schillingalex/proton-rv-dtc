@@ -37,44 +37,52 @@ def init_pool(shared_rsp_arrays, shared_diffuser: Diffuser):
 
 def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, phantom="head",
                                    container_image: str = "../data/simulation-environment_e938dc1.sif") -> dict:
+    features: dict | None = None
     features_file_path = os.path.join(os.path.dirname(file), cache_filename)
     if os.path.exists(features_file_path):
         with open(features_file_path, "rb") as features_file:
-            return pickle.load(features_file)
+            features = pickle.load(features_file)
+        if shift_x == 0 and shift_y == 0:
+            return features
 
     metadata: dict
     with open(file) as metafile:
         metadata = json.load(metafile)
 
-    try:
-        base_features = metadata["ground_truth"]
-    except BaseException as e:
-        print(file)
-        raise e
-
     params = metadata["parameters"]
+    energy = params["beam_energy"]
     beam_spot_x = params["beam_spot_x"]
     beam_spot_sigma_x = params["beam_spot_sigma_x"]
     beam_spot_y = params["beam_spot_y"]
     beam_spot_sigma_y = params["beam_spot_sigma_y"]
-
-    base_features["beam_spot_x"] = beam_spot_x
-    base_features["beam_spot_y"] = beam_spot_y
-
-    energy = params["beam_energy"]
-    base_features["energy"] = energy
-    ranges = pd.read_csv("../data/proton_energies.csv")
-    ranges["diff"] = np.abs(ranges["energy"] - energy)
-    base_features["water_range"] = ranges["range"][ranges["diff"].argmin()]
-
     pra = params["phantom_rotation_angle"]
-    base_features["phantom_rotation_angle"] = pra
+
+    # features is not None if we found a cached file
+    if features is None:
+        if "ground_truth" not in metadata:
+            raise ValueError(f"Missing ground_truth in {file}")
+
+        features = metadata["ground_truth"]
+
+        features["beam_spot_x"] = beam_spot_x
+        features["beam_spot_y"] = beam_spot_y
+
+        features["energy"] = energy
+        ranges = pd.read_csv("../data/proton_energies.csv")
+        ranges["diff"] = np.abs(ranges["energy"] - energy)
+        features["water_range"] = ranges["range"][ranges["diff"].argmin()]
+
+        features["phantom_rotation_angle"] = pra
+
+        data_file = os.path.join(os.path.dirname(file), metadata["output"]["output_files"][0])
+        df = pd.DataFrame(np.load(data_file))
+        features = f.extract_features_pixels(df, diffuser, features)
 
     if shift_x != 0 or shift_y != 0:
         beam_spot_x += shift_x
         beam_spot_y += shift_y
-        base_features["beam_spot_x_shifted"] = beam_spot_x
-        base_features["beam_spot_y_shifted"] = beam_spot_y
+        features["beam_spot_x_shifted"] = beam_spot_x
+        features["beam_spot_y_shifted"] = beam_spot_y
 
         # Simulate treatment for the shifted position in order to determine the actual planned spot.
         # We only need stopping statistics in the phantom, so 2e4 primaries are sufficient.
@@ -95,19 +103,21 @@ def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, 
             if tempfile.endswith(".json"):
                 ground_truth_shifted = f.extract_ground_truth_from_stopping(os.path.join(tempdir, tempfile))
                 for k, v in ground_truth_shifted.items():
-                    base_features[f"{k}_shifted"] = v
+                    features[f"{k}_shifted"] = v
         shutil.rmtree(tempdir, ignore_errors=True)
 
-    data_file = os.path.join(os.path.dirname(file), metadata["output"]["output_files"][0])
-    df = pd.DataFrame(np.load(data_file))
-    features = f.extract_features_pixels(df, diffuser, base_features)
-
+    # We compute this either way, if we found a cached file and computing with a shift, or if we have no
+    # cached data and re-compute with or without shift.
+    # Has to be done after above if block because it can change beam_spot_x and beam_spot_y used here.
     rsp = rsp_arrays[int(pra)]
     rsp_features = f.extract_features_rsp(rsp, beam_spot_x, beam_spot_sigma_x, beam_spot_y, beam_spot_sigma_y)
     features.update(rsp_features)
 
-    with open(features_file_path, "wb") as features_file:
-        pickle.dump(features, features_file)
+    # Only cache the result if we actually did compute the features without simulated error in the form of
+    # a lateral shift of the patient.
+    if shift_x == 0 and shift_y == 0:
+        with open(features_file_path, "wb") as features_file:
+            pickle.dump(features, features_file)
     return features
 
 
