@@ -324,50 +324,61 @@ def eval_run_config(run_config: RunConfig):
     writer = SummaryWriter()
     writer.add_text("config", str(run_config))
 
-    rejection_rate_keys = []
+    rr_keys = [t.model_name for t in run_config.multitask] + [t.model_name for t in run_config.single_task if t.target == "z"]
 
-    results = {}
-    for task_config in run_config.multitask:
-        results[task_config.model_name] = eval_task(
-            run_config, task_config,
-            X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
-        )
-        rejection_rate_keys.append(task_config.model_name)
+    if os.path.exists(os.path.join(run_config.workdir, "results.json")):
+        results = json.load(open(os.path.join(run_config.workdir, "results.json")))
+    else:
+        results = {}
+        for task_config in run_config.multitask:
+            results[task_config.model_name] = eval_task(
+                run_config, task_config,
+                X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
+            )
 
-    for task_config in run_config.single_task:
-        results[task_config.model_name] = eval_task(
-            run_config, task_config,
-            X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
-        )
-        if task_config.target == "z":
-            rejection_rate_keys.append(task_config.model_name)
+        for task_config in run_config.single_task:
+            results[task_config.model_name] = eval_task(
+                run_config, task_config,
+                X_train, X_val, X_test, y_train, y_val, y_test, X_scaler, y_scaler, feature_names, writer
+            )
 
     shift_amount = 10
-    rejection_rate_data = np.zeros((shift_amount+1, len(rejection_rate_keys)))
-    rejection_rate_data_calib = np.zeros((shift_amount+1, len(rejection_rate_keys)))
-    for i, k in enumerate(rejection_rate_keys):
+    rr_data = np.zeros((shift_amount+1, len(rr_keys)))
+    rr_data_calib = np.zeros((shift_amount+1, len(rr_keys)))
+    rr_data_other = np.zeros((shift_amount+1, len(rr_keys)))
+    rr_data_other_calib = np.zeros((shift_amount+1, len(rr_keys)))
+    for i, k in enumerate(rr_keys):
         key = "rr_0"
         if "rr_1" in results[k]:
             key = "rr_1"
-        rejection_rate_data[0, i] = results[k][key]
+        rr_data[0, i] = results[k][key]
+        rr_data_other[0, i] = results[k]["other"][key]
         if run_config.val_data_path is not None:
-            rejection_rate_data_calib[0, i] = results[k][key + "_calib"]
+            rr_data_calib[0, i] = results[k][key + "_calib"]
+            rr_data_other_calib[0, i] = results[k]["other"][key + "_calib"]
         shifted_data = results[k]["shifted"]
+        shifted_data_other = results[k]["other"]["shifted"]
         for d in shifted_data.keys():
-            rejection_rate_data[d, i] = shifted_data[d][key]
+            rr_data[int(d), i] = shifted_data[d][key]
+            rr_data_other[int(d), i] = shifted_data_other[d][key]
             if run_config.val_data_path is not None:
-                rejection_rate_data_calib[d, i] = shifted_data[d][key + "_calib"]
-    rejection_rate_labels = []
-    for k in rejection_rate_keys:
+                rr_data_calib[int(d), i] = shifted_data[d][key + "_calib"]
+                rr_data_other_calib[int(d), i] = shifted_data_other[d][key + "_calib"]
+    rr_labels = []
+    for k in rr_keys:
         components = k.split("_")
         components = [c.upper() if len(c) == 1 else c for c in components]
         label = " ".join(components)
         label = label[:1].upper() + label[1:]
-        rejection_rate_labels.append(label)
-    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rejection_rate_data, rejection_rate_labels)
+        rr_labels.append(label)
+    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rr_data, rr_labels)
     save_fig(fig, os.path.join(run_config.workdir, "rejection_rates"))
-    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rejection_rate_data_calib, rejection_rate_labels)
+    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rr_data_calib, rr_labels)
     save_fig(fig, os.path.join(run_config.workdir, "rejection_rates_calib"))
+    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rr_data_other, rr_labels)
+    save_fig(fig, os.path.join(run_config.workdir, "rejection_rates_other"))
+    fig = plot_shifted_rejection_rates(np.arange(shift_amount+1), rr_data_other_calib, rr_labels)
+    save_fig(fig, os.path.join(run_config.workdir, "rejection_rates_other_calib"))
 
     with open(os.path.join(run_config.workdir, "results.json"), "w") as results_file:
         json.dump(results, results_file)

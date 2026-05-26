@@ -286,7 +286,7 @@ def plot_shifted_rejection_rates(shifts: Sequence, rr_data: np.ndarray, labels: 
     plt.ylabel("Spot rejection rate")
     plt.grid(color="gray", alpha=0.3)
     plt.grid(which="minor", color="lightgray", alpha=0.3)
-    plt.legend(loc="upper left")
+    plt.legend(loc="lower right")
     return fig
 
 
