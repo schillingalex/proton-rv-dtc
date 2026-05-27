@@ -18,6 +18,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
+from cluster.diffusion import CauchyKernelDiffuser
 from model.evaluation import rejection_rate
 import model.features as f
 from model.nets import RegressionNet
@@ -77,7 +78,7 @@ def eval_feature_generation(data_files):
 
         start_time = time.time()
         df = pd.DataFrame(np.load(data_file))
-        features = f.extract_features_pixels(df, base_features)
+        features = f.extract_features_pixels(df, CauchyKernelDiffuser(gamma=0.0047, eta=0.6964), base_features)
         times_detector_features.append(time.time() - start_time)
 
         start_time = time.time()
