@@ -77,7 +77,7 @@ def eval_feature_generation(data_files):
 
         start_time = time.time()
         df = pd.DataFrame(np.load(data_file))
-        features = f.extract_features_pseudopixels(df, base_features)
+        features = f.extract_features_pixels(df, base_features)
         times_detector_features.append(time.time() - start_time)
 
         start_time = time.time()
