@@ -101,7 +101,7 @@ def eval_other(run_config: RunConfig, model, X_scaler, y_scaler, feature_names, 
     mean, std, std_epi, std_alea, ae, mae, ground_truth = get_monte_carlo_predictions(model, other_loader, y_scaler)
     rmse = np.sqrt(np.mean(ae**2, axis=0))
     for i in range(len(targets)):
-        results[f"rmse_{i}"] = rmse[i]
+        results[f"rmse_{i}"] = rmse[i].item()
         results[f"mae_{i}"] = mae[i].item()
         results[f"rr_{i}"] = rejection_rate(ae[:, i], std[:, i], run_config.rr_ci)
         results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], run_config.rr_ci)
@@ -200,7 +200,7 @@ def eval_task(run_config: RunConfig, task_config: MLConfig,
     mean, std, std_epi, std_alea, ae, mae, gt = get_monte_carlo_predictions(model, test_loader, y_scaler)
     rmse = np.sqrt(np.mean(ae**2, axis=0))
     for i in range(num_y):
-        results[f"rmse_{i}"] = rmse[i]
+        results[f"rmse_{i}"] = rmse[i].item()
         results[f"mae_{i}"] = mae[i].item()
         results[f"rr_{i}_epistemic"] = rejection_rate(ae[:, i], std_epi[:, i], run_config.rr_ci)
         results[f"rr_{i}_aleatoric"] = rejection_rate(ae[:, i], std_alea[:, i], run_config.rr_ci)
