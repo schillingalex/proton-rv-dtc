@@ -172,7 +172,7 @@ def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features:
     layer_column = "layer"
 
     features = {}
-    if isinstance(base_features, dict):
+    if base_features:
         features.update(base_features)
 
     timings = {}
@@ -189,51 +189,42 @@ def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features:
     timings["clustering"] = time.time() - start_time
     start_time = time.time()
 
-    features["pixels"] = df["size"].sum()
-    features["clusters"] = len(df)
+    sizes = df["size"].to_numpy(np.int32)
 
-    features["cluster_size_mean"] = df["size"].mean()
-    features["cluster_size_std"] = df["size"].std()
+    features["pixels"] = sizes.sum()
+    features["clusters"] = df.shape[0]
 
-    cs_hist, _ = np.histogram(df["size"].values, bins=np.arange(1, 73) + 0.5)
-    for i in range(len(cs_hist)):
-        features[f"cs_{i+2}"] = cs_hist[i]
+    features["cluster_size_mean"] = sizes.mean()
+    features["cluster_size_std"] = sizes.std()
+
+    cs_hist = np.bincount(sizes, minlength=73)[2:73]
+    features.update({f"cs_{i + 2}": v for i, v in enumerate(cs_hist)})
 
     features["x_mean"] = df["posX"].mean()
     features["x_std"] = df["posX"].std()
     features["y_mean"] = df["posY"].mean()
     features["y_std"] = df["posY"].std()
 
-    layers = list(range(43))
+    layers = np.arange(43)
+    layer_groups = df.groupby(layer_column)
 
-    pixels_dist = [sum(df[df[layer_column] == i]["size"]) for i in layers]
+    stats = layer_groups.agg(
+        pixels=("size", "sum"), clusters=("size", "count"),
+        x_mean=("posX", "mean"), x_std=("posX", "std"),
+        y_mean=("posY", "mean"), y_std=("posY", "std"),
+    ).reindex(layers, fill_value=0)
+
+    pixels_dist = stats["pixels"].to_numpy()
     features.update(fits_over_distribution(layers, pixels_dist, "pixels", normalize=False))
 
-    clusters_dist = [len(df[df[layer_column] == i]) for i in layers]
+    clusters_dist = stats["clusters"].to_numpy()
     features.update(fits_over_distribution(layers, clusters_dist, "clusters", normalize=False))
 
-    # edep_dist = [sum(df[df[layer_column] == i]["edep"]) for i in layers]
-    # features.update(fits_over_distribution(layers, edep_dist, "edep", normalize=False))
-
-    for i in layers:
-        features[f"pixels_layer_{i}"] = pixels_dist[i]
-        features[f"clusters_layer_{i}"] = clusters_dist[i]
-    #     features[f"edep_layer_{i}"] = edep_dist[i]
-
-    layer_groups = df.groupby(layer_column)
-    x_mean_dist = layer_groups["posX"].mean()
-    x_std_dist = layer_groups["posX"].std()
-    y_mean_dist = layer_groups["posY"].mean()
-    y_std_dist = layer_groups["posY"].std()
-
-    for i in range(len(x_mean_dist)):
-        features[f"x_mean_layer_{i}"] = x_mean_dist[i]
-    for i in range(len(x_std_dist)):
-        features[f"x_std_layer_{i}"] = x_std_dist[i]
-    for i in range(len(y_mean_dist)):
-        features[f"y_mean_layer_{i}"] = y_mean_dist[i]
-    for i in range(len(y_std_dist)):
-        features[f"y_std_layer_{i}"] = y_std_dist[i]
+    for col in stats.columns:
+        features.update({
+            f"{col}_layer_{i}": v
+            for i, v in enumerate(stats[col])
+        })
 
     timings["features"] = time.time() - start_time
 
