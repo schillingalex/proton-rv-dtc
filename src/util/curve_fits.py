@@ -20,7 +20,7 @@ def distribution_rmse(x: list, y: list, distribution: Callable[[float], float]):
     return np.sqrt(np.mean(squared_errors))
 
 
-def fits_over_distribution(x: list, y: list, base_name: str, normalize: bool = True) -> dict:
+def fits_over_distribution(x: list | np.ndarray, y: list | np.ndarray, base_name: str, normalize: bool = True) -> dict:
     """
     Creates a linear, cubic, and exponential fit over the given input data `x` and `y`.
 
@@ -43,7 +43,7 @@ def fits_over_distribution(x: list, y: list, base_name: str, normalize: bool = T
 
     # Normalizing the histogram
     if normalize:
-        y = list(np.array(y) / np.sum(y))
+        y = np.array(y) / np.sum(y)
 
     lin_coef = Polynomial.fit(x, y, 1).convert().coef
     fits[base_name + "_lin_0"] = lin_coef[0]
