@@ -35,11 +35,15 @@ def add_cluster_labels(df: pd.DataFrame,
         group[cluster_column_name] = clusterer.fit_predict(group[cluster_columns], **kwargs)
         return group
 
-    df[cluster_column_name] = np.arange(len(df)) + 1
     # If we are grouping into separate clustering regions, we need to group_by/apply and then adjust the cluster IDs
     # in order to not have any overlap between different regions.
     if len(group_column) > 0:
-        df = df.groupby(group_column, group_keys=False, sort=False).apply(cluster)
+        groups = df.groupby(group_column, sort=False)
+        out = []
+        for _, g in groups:
+            g = cluster(g)
+            out.append(g)
+        df = pd.concat(out, ignore_index=True)
 
         max_cluster_id = df[cluster_column_name].max()
         if max_cluster_id <= 0 or np.isnan(max_cluster_id):
