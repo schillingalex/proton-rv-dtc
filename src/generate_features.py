@@ -99,12 +99,16 @@ def extract_feature_dict_from_file(file, shift_x, shift_y, cache_filename: str, 
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         tempfiles = os.listdir(tempdir)
+        json_found = False
         for tempfile in tempfiles:
             if tempfile.endswith(".json"):
+                json_found = True
                 ground_truth_shifted = f.extract_ground_truth_from_stopping(os.path.join(tempdir, tempfile))
                 for k, v in ground_truth_shifted.items():
                     features[f"{k}_shifted"] = v
         shutil.rmtree(tempdir, ignore_errors=True)
+        if not json_found:
+            raise RuntimeError("Simulation failed, no shifted ground truth found")
 
     # We compute this either way, if we found a cached file and computing with a shift, or if we have no
     # cached data and re-compute with or without shift.
