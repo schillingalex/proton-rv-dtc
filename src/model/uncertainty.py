@@ -31,48 +31,51 @@ def get_monte_carlo_predictions(model: nn.Module, data_loader: DataLoader,
     """
     forward_passes = 100
 
-    if data_loader.drop_last:
-        n_samples = len(data_loader) * data_loader.batch_size
-    else:
-        n_samples = len(data_loader.dataset)
-
     ground_truths = []
-    dropout_preds = np.empty((forward_passes, n_samples, y_scaler.mean.shape[0]))
-    dropout_uncerts = np.empty((forward_passes, n_samples, y_scaler.mean.shape[0]))
+    preds = []
+    stds_epi = []
+    stds_alea = []
+
     model.eval()
     enable_dropout(model)
     with torch.inference_mode():
-        iterator = list(enumerate(data_loader))
+        iterator = data_loader
         if show_progress:
             iterator = tqdm(iterator)
-        for i, (X, y) in iterator:
-            ground_truths.append((y_scaler.inverse_transform(y)).cpu().numpy())
-            preds = []
-            uncerts = []
-            for _ in range(forward_passes):
-                output = model(X)
-                output_pred = y_scaler.inverse_transform(output[0])
-                output_uncert = torch.sqrt(output[1]) * y_scaler.std
-                preds.append(output_pred.cpu().numpy())
-                uncerts.append(output_uncert.cpu().numpy())
+        for X, y in iterator:
+            ground_truths.append(y_scaler.inverse_transform(y))
 
-            dropout_preds[:, i * data_loader.batch_size:i * data_loader.batch_size + X.shape[0], :] = np.stack(preds)
-            dropout_uncerts[:, i*data_loader.batch_size:i*data_loader.batch_size + X.shape[0], :] = np.stack(uncerts)
+            X_repeat = torch.repeat_interleave(X, repeats=forward_passes, dim=0)
+            pred, var_alea = model(X_repeat)
 
-    ground_truth = np.concatenate(ground_truths)
-    # Predictions (mean over forward passes)
-    mean = np.mean(dropout_preds, axis=0)
-    # Standard deviation for each prediction
-    std_epi = np.std(dropout_preds, axis=0)
-    # Aleatoric uncertainty as predicted by the network
-    std_alea = np.mean(dropout_uncerts, axis=0)
+            pred = y_scaler.inverse_transform(pred)
+            pred = pred.view(-1, forward_passes, y.shape[-1])
+            # Predictions (mean over forward passes)
+            mean = pred.mean(dim=1)
+            # Epistemic uncertainty = Standard deviation for each prediction
+            std_epi = pred.std(dim=1)
+
+            var_alea = var_alea * y_scaler.std**2
+            var_alea = var_alea.view(-1, forward_passes, y.shape[-1])
+            var_alea = var_alea.mean(dim=1)
+            std_alea = torch.sqrt(var_alea)
+
+            preds.append(mean)
+            stds_epi.append(std_epi)
+            stds_alea.append(std_alea)
+
+    ground_truth = torch.cat(ground_truths).cpu().numpy()
+    preds = torch.cat(preds).cpu().numpy()
+    std_epi = torch.cat(stds_epi).cpu().numpy()
+    std_alea = torch.cat(stds_alea).cpu().numpy()
+
     # Total var = epistemic var + aleatoric var
     std = np.sqrt(std_epi ** 2 + std_alea ** 2)
     # Absolute error of each prediction
-    ae = np.abs(mean - ground_truth)
+    ae = np.abs(preds - ground_truth)
     # Mean absolute error over all predictions
     mae = np.mean(ae, axis=0)
-    return mean, std, std_epi, std_alea, ae, mae, ground_truth
+    return preds, std, std_epi, std_alea, ae, mae, ground_truth
 
 
 def fit_uncertainty_calibrator(ae, std):
