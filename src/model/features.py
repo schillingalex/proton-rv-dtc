@@ -1,6 +1,7 @@
 import os
 import json
-from typing import Optional
+import time
+from typing import Optional, Union
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
@@ -166,18 +167,27 @@ def extract_features_pseudopixels(df: pd.DataFrame, base_features: Optional[dict
     return features
 
 
-def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features: Optional[dict] = None) -> dict:
+def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features: Optional[dict] = None,
+                            measure_time=False) -> Union[tuple[dict, dict], dict]:
     layer_column = "layer"
 
     features = {}
     if isinstance(base_features, dict):
         features.update(base_features)
 
+    timings = {}
+    start_time = time.time()
+
     diffused = diffuser.diffuse_hits(df)
-    diffused["group_column"] = diffused["eventID"] * 100 + diffused["layer"]
-    clustered = add_cluster_labels(diffused)
-    df = generate_cluster_df(clustered)
+    timings["diffusion"] = time.time() - start_time
+    start_time = time.time()
+
+    diffused["distance_column"] = diffused["eventID"] * 10
+    clustered = add_cluster_labels(diffused, cluster_columns=["distance_column", "column", "row"], group_column="layer")
+    df = generate_cluster_df(clustered, consider_duplicates=False)
     df = df[df["size"] > 1]
+    timings["clustering"] = time.time() - start_time
+    start_time = time.time()
 
     features["pixels"] = df["size"].sum()
     features["clusters"] = len(df)
@@ -205,11 +215,9 @@ def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features:
     # edep_dist = [sum(df[df[layer_column] == i]["edep"]) for i in layers]
     # features.update(fits_over_distribution(layers, edep_dist, "edep", normalize=False))
 
-    for i in range(len(pixels_dist)):
+    for i in layers:
         features[f"pixels_layer_{i}"] = pixels_dist[i]
-    for i in range(len(clusters_dist)):
         features[f"clusters_layer_{i}"] = clusters_dist[i]
-    # for i in range(len(edep_dist)):
     #     features[f"edep_layer_{i}"] = edep_dist[i]
 
     layer_groups = df.groupby(layer_column)
@@ -227,6 +235,10 @@ def extract_features_pixels(df: pd.DataFrame, diffuser: Diffuser, base_features:
     for i in range(len(y_std_dist)):
         features[f"y_std_layer_{i}"] = y_std_dist[i]
 
+    timings["features"] = time.time() - start_time
+
+    if measure_time:
+        return features, timings
     return features
 
 

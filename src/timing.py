@@ -31,7 +31,7 @@ from util.preprocessing import df_to_dataset
 from util.torch_utils import TorchStandardScaler
 
 
-def eval_feature_generation(data_files):
+def eval_feature_generation(data_files, device=None):
     rsp_file = "../data/imageDump.mhd"
     rsp_arrays = {}
     rsp_load_times = []
@@ -47,6 +47,8 @@ def eval_feature_generation(data_files):
 
     feature_dicts = []
 
+    times_cd = []
+    times_clustering = []
     times_detector_features = []
     times_phantom_features = []
     for metafile_path in tqdm(data_files, "Features"):
@@ -76,10 +78,12 @@ def eval_feature_generation(data_files):
 
         data_file = os.path.join(os.path.dirname(metafile_path), metadata["output"]["output_files"][0])
 
-        start_time = time.time()
         df = pd.DataFrame(np.load(data_file))
-        features = f.extract_features_pixels(df, CauchyKernelDiffuser(gamma=0.0047, eta=0.6964), base_features)
-        times_detector_features.append(time.time() - start_time)
+        features, timings = f.extract_features_pixels(df, CauchyKernelDiffuser(gamma=0.0047, eta=0.6964, device=device),
+                                                      base_features, measure_time=True)
+        times_cd.append(timings["diffusion"])
+        times_clustering.append(timings["clustering"])
+        times_detector_features.append(timings["features"])
 
         start_time = time.time()
         rsp = rsp_arrays[pra]
@@ -89,6 +93,10 @@ def eval_feature_generation(data_files):
         feature_dicts.append(features)
 
     results.update({
+        "charge_diffusion_mean": np.mean(times_cd),
+        "charge_diffusion_std": np.std(times_cd),
+        "clustering_mean": np.mean(times_clustering),
+        "clustering_std": np.std(times_clustering),
         "detector_features_mean": np.mean(times_detector_features),
         "detector_features_std": np.std(times_detector_features),
         "phantom_features_mean": np.mean(times_phantom_features),
@@ -172,6 +180,7 @@ if __name__ == "__main__":
                         help="Path to directory where a trained model for the config can be found.")
     parser.add_argument("-d", dest="device", type=str, required=False, help="Device to use for PyTorch.")
     parser.add_argument("-s", dest="seed", type=int, required=False, help="Random seed to use for evaluation.")
+    parser.add_argument("-l", dest="limit", type=int, required=False, default=-1, help="Limit the number of files used.")
     parser.add_argument("data_files", nargs="+", help="The files or file patterns to use for timing evaluations.")
     args = parser.parse_args()
 
@@ -183,7 +192,10 @@ if __name__ == "__main__":
         data_files.extend(list(glob(data_file_pattern)))
     print("Files collected")
 
-    results_feature_gen, data = eval_feature_generation(data_files)
+    if args.limit > 0:
+        data_files = data_files[:args.limit]
+
+    results_feature_gen, data = eval_feature_generation(data_files, args.device)
 
     config = RunConfig.from_file(args.config_file)
     config.workdir = args.workdir
