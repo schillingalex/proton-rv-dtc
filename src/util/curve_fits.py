@@ -83,7 +83,7 @@ def fit_gaussian(x: Iterable, y: Iterable) -> Tuple[np.ndarray, np.ndarray, Call
     mu_initial = sum(x * y) / sum(y)
     sigma_initial = np.sqrt(sum(y * (x - mu_initial)**2) / sum(y))
 
-    popt, pcov = curve_fit(gauss, x, y, p0=[np.max(y), mu_initial, sigma_initial], maxfev=10000)
+    popt, pcov = curve_fit(gauss, x, y, p0=[np.max(y), mu_initial, sigma_initial], maxfev=100000)
     return popt, pcov, partial(gauss, a=popt[0], mu=popt[1], sigma=popt[2])
 
 
