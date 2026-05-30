@@ -55,11 +55,9 @@ def extract_ground_truth_from_stopping(filename: str):
     world_voxels = voxel_image.get_world_voxels()
 
     # Range (z-coordinate) and straggling
-    stops_z = []
-    for i in range(world_voxels.shape[2]):
-        stops_z.append(np.sum(world_voxels[:, :, i]))
-    x = np.arange(len(stops_z)) + voxel_size/2
-    y = np.array(stops_z)
+    x = np.arange(world_voxels.shape[2]) + voxel_size/2
+    # Sum over x and y
+    y = world_voxels.sum(0).sum(0)
     popt_z, _, _ = fit_gaussian(x, y)
     # Range = Mean of fitted Gaussian
     r = popt_z[1]
@@ -67,21 +65,17 @@ def extract_ground_truth_from_stopping(filename: str):
     sigma_r = popt_z[2]
 
     # Lateral deflection / transverse beam spread and x-coordinate
-    stops_x = []
-    for i in range(world_voxels.shape[0]):
-        stops_x.append(np.sum(world_voxels[i, :, :]))
-    x = np.arange(len(stops_x)) + voxel_size/2
-    y = np.array(stops_x)
+    x = np.arange(world_voxels.shape[0]) + voxel_size/2
+    # Sum over y and z
+    y = world_voxels.sum(1).sum(1)
     popt_x, _, _ = fit_gaussian(x, y)
     pos_x = popt_x[1] - volume[0]/2
     sigma_x_over_r = popt_x[2] / r
 
     # y-coordinate
-    stops_y = []
-    for i in range(world_voxels.shape[1]):
-        stops_y.append(np.sum(world_voxels[:, i, :]))
-    x = np.arange(len(stops_y)) + voxel_size/2
-    y = np.array(stops_y)
+    x = np.arange(world_voxels.shape[1]) + voxel_size/2
+    # Sum over x and z
+    y = world_voxels.sum(0).sum(1)
     popt_y, _, _ = fit_gaussian(x, y)
     pos_y = popt_y[1] - volume[1]/2
 
