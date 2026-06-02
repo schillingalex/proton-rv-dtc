@@ -1,6 +1,5 @@
 import pathlib
 from typing import Sequence, List, Optional
-import SimpleITK
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep as hep
@@ -31,13 +30,10 @@ def apply_style(notebook=False):
                                                            "#999999", "#e41a1c", "#dede00"])
 
 
-def save_fig(fig, path: str, close: bool = True):
+def save_fig(fig, path: str, close: bool = True, bbox_inches="tight"):
     """
-    Saves a matplotlib figure at a given path. If the path does not include a file extension, two files are saved,
-    one as PDF and one as EPS.
+    Saves a matplotlib figure at a given path. If the path does not include a file extension the figure is saves as PDF.
     If the figure is needed after saving, the `close` argument must be set to False, so the figure is left open.
-
-    ! Automatic EPS export temporarily disabled !
 
     :param fig: The figure to save.
     :param path: The path to save the figure to (with filename and optional file extension).
@@ -46,11 +42,10 @@ def save_fig(fig, path: str, close: bool = True):
     fig.tight_layout()
     # If an extension is already provided, just save at the path
     if pathlib.Path(path).suffix != "":
-        fig.savefig(path)
-    # Without extension, we save .pdf and .eps
+        fig.savefig(path, bbox_inches=bbox_inches)
+    # Without extension, we save .pdf
     else:
-        fig.savefig(path + ".pdf")
-        # fig.savefig(path + ".eps")
+        fig.savefig(path + ".pdf", bbox_inches=bbox_inches)
     if close:
         plt.close(fig)
 
