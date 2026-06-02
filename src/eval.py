@@ -267,6 +267,7 @@ def eval_task(run_config: RunConfig, task_config: MLConfig,
             pvalues_spot.append(shift_pvalues)
         pvalues.append(np.mean(np.array(pvalues_spot), -1))
     pvalues = np.stack(pvalues)
+    results["pvalues"] = pvalues.tolist()
 
     save_fig(plot_shifted_pvalues(spots, pvalues), os.path.join(task_dir, f"ttest_spot_p"))
 
