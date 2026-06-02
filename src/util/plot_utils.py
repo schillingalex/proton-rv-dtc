@@ -1,4 +1,5 @@
 import pathlib
+from itertools import cycle
 from typing import Sequence, List, Optional
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -307,4 +308,69 @@ def plot_shifted_pvalues(spots: Sequence, shifted_pvalues: np.ndarray) -> plt.Fi
     plt.ylabel("p-value")
     plt.legend()
     fig.tight_layout()
+    return fig
+
+
+def plot_pval_model(spots, pval: np.ndarray, color=None, label=None, ax=None):
+    """
+    Plot a line and a fill_between for the given pvalues over the given spots by forming the mean and std over axis 0.
+
+    :param spots: Sequence of spot values for the x-axis.
+    :param pval: Numpy array containing the p-values.
+    :param color: Color of the line and the fill_between. Optional, default: None = automatic coloring by matplotlib.
+    :param label: The label to set to the line for the legend later.
+    :param ax: Axes to use. Optional, default: None = plt.gca().
+    """
+    if ax is None:
+        ax = plt.gca()
+
+    m = pval.mean(axis=0)
+    s = pval.std(axis=0)
+
+    ax.plot(spots, m, color=color, linestyle="--", linewidth=1, label=label)
+    ax.fill_between(spots, m - s, m + s, color=color, alpha=0.3)
+
+
+def plot_pvals_mm(spots: list | np.ndarray, pvalues: dict[str, np.ndarray], error_mm: int,
+                  filter_models: list | None = None, output_path: str | None = None):
+    """
+    Plots multiple lines and fill_betweens for pvalues over spot counts.
+    pvalues is given as dictionary with the key being the name of the model (underscores will be converted to spaces).
+    The format of the ndarrays in pvalues has to be (samples, len(spots), error_mms). error_mms means that the index
+    in the last axis has to correspond to errors of the same lateral shift in mm, i.e., index 1 is 1 mm error.
+
+    :param spots: Sequence of spot values for the x-axis.
+    :param pvalues: Dict of Numpy arrays containing the p-values with shape (samples, len(spots), error_mms).
+    :param error_mm: Simulated error in mm (used as index in last axis of pvalues).
+    :param filter_models: Optional list of models to use, if not all the keys in pvalues are desired.
+    :param output_path: Optional path to save the figure.
+    """
+    if filter_models is None:
+        filter_models = pvalues.keys()
+
+    fig = plt.figure(figsize=[10, 9])
+
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    # x limit is at least 1000 spots
+    max_x = 1000
+    # y limit is at least 0.1 (p value)
+    max_y = 0.1
+    for model, c in zip(filter_models, cycle(color_cycle)):
+        pval = pvalues[model][:, :, error_mm]
+        plot_pval_model(spots, pval, color=c, label=" ".join(model.split("_")).title())
+
+        # Limit x to the
+        max_x = max(max_x, *spots[np.where(pval.mean(axis=0) + pval.std(axis=0) > 1e-4)])
+        # Limit y to the top of the highest fill_between
+        max_y = max(max_y, (pval.mean(axis=0) + pval.std(axis=0)).max())
+
+    plt.hlines(0.05, np.min(spots), np.max(spots), colors="orange", linestyles="dashed", label="$\\alpha=0.05$")
+    plt.hlines(0.01, np.min(spots), np.max(spots), colors="red", linestyles="dotted", label="$\\alpha=0.01$")
+
+    plt.xlim(np.min(spots), max_x)
+    plt.ylim(0, max_y)
+    plt.legend(title=f"{error_mm} mm Error")
+
+    if output_path is not None:
+        save_fig(fig, output_path)
     return fig
