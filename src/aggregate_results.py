@@ -2,9 +2,9 @@ import argparse
 import os
 import glob
 import json
-from typing import List
-
 import numpy as np
+
+from util.plot_utils import plot_pvals_mm, apply_style
 
 
 def merge_dicts(dicts):
@@ -24,18 +24,42 @@ def aggregate_dict(d):
         if isinstance(d[k], dict):
             result[k] = aggregate_dict(d[k])
         else:
-            result[f"{k}_mean"] = np.mean(d[k])
-            result[f"{k}_std"] = np.std(d[k])
+            values = np.array(d[k])
+            if len(values.shape) == 1:
+                result[f"{k}_mean"] = np.mean(d[k])
+                result[f"{k}_std"] = np.std(d[k])
+            else:
+                result[k] = values
     return result
 
 
-def aggregate_results(directories: List[str]):
+def compare_configs(cfg1, cfg2):
+    ignore_keys = ["seed", "device", "purge_workdir", "workdir"]
+    cfg1_filtered = {k:v for k,v in cfg1.items() if k not in ignore_keys}
+    cfg2_filtered = {k:v for k,v in cfg2.items() if k not in ignore_keys}
+    return cfg1_filtered == cfg2_filtered
+
+
+def verify_and_load_config(directories: list[str]):
+    cfg = None
+    for pattern in directories:
+        for path in glob.glob(pattern):
+            with open(os.path.join(path, "config.json")) as f:
+                new_cfg = json.load(f)
+                if cfg is None:
+                    cfg = new_cfg
+                if not compare_configs(cfg, new_cfg):
+                    raise ValueError(f"Configs do not match between all runs")
+    return cfg
+
+
+def load_results(directories: list[str]):
     result_dicts = []
     for pattern in directories:
         for path in glob.glob(pattern):
             with open(os.path.join(path, "results.json")) as f:
                 result_dicts.append(json.load(f))
-    return aggregate_dict(merge_dicts(result_dicts))
+    return result_dicts
 
 
 def build_error_table(res):
@@ -100,11 +124,28 @@ def build_transfer_error_table(res):
     print("Rejection rate:", res["multitask_weighted_sum"]["other"]["rr_1_calib_mean"], "+-", res["multitask_weighted_sum"]["other"]["rr_1_calib_std"])
 
 
+def plot_pvalues(cfg, res):
+    spots = np.arange(cfg["ttest"]["spots_min"], cfg["ttest"]["spots_max"] + 1, cfg["ttest"]["spots_step"])
+    pvalues = {k: v["pvalues"] for k, v in res.items()}
+    filter_models = ["multitask_weighted_sum", "multitask_homoscedastic", "single_task_z"]
+    plot_pvals_mm(spots, pvalues, 1, filter_models, output_path="ttest_spot_1mm.pdf")
+    plot_pvals_mm(spots, pvalues, 2, filter_models, output_path="ttest_spot_2mm.pdf")
+    plot_pvals_mm(spots, pvalues, 3, filter_models, output_path="ttest_spot_3mm.pdf")
+    plot_pvals_mm(spots, pvalues, 4, filter_models, output_path="ttest_spot_4mm.pdf")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("directories", metavar="directories", type=str, nargs="+")
     args = parser.parse_args()
 
-    results = aggregate_results(args.directories)
-    build_error_table(results)
-    build_transfer_error_table(results)
+    apply_style()
+
+    config = verify_and_load_config(args.directories)
+    results = load_results(args.directories)
+    aggregated_results = aggregate_dict(merge_dicts(results))
+
+    build_error_table(aggregated_results)
+    build_transfer_error_table(aggregated_results)
+
+    plot_pvalues(config, aggregated_results)
