@@ -87,7 +87,7 @@ def plot_error_histogram(y_pred: np.ndarray, y_true: np.ndarray) -> plt.Figure:
     plt.hist(y_pred - y_true, bins=np.arange(-15, 15.01, 0.2))
     plt.xlabel("Prediction error (mm)")
     plt.ylabel("Number of predictions in bin")
-    plt.xlim(-10, 10)
+    plt.xlim(-8, 8)
     fig.tight_layout()
     return fig
 
