@@ -328,7 +328,7 @@ def plot_pval_model(spots, pval: np.ndarray, color=None, label=None, ax=None):
     m = pval.mean(axis=0)
     s = pval.std(axis=0)
 
-    ax.plot(spots, m, color=color, linestyle="--", linewidth=1, label=label)
+    ax.plot(spots, m, color=color, linestyle="--", linewidth=2, label=label)
     ax.fill_between(spots, m - s, m + s, color=color, alpha=0.3)
 
 
@@ -353,7 +353,7 @@ def plot_pvals_mm(spots: list | np.ndarray, pvalues: dict[str, np.ndarray], erro
 
     color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     # x limit is at least 1000 spots
-    max_x = 1000
+    max_x = 400
     # y limit is at least 0.1 (p value)
     max_y = 0.1
     for model, c in zip(filter_models, cycle(color_cycle)):
@@ -361,7 +361,7 @@ def plot_pvals_mm(spots: list | np.ndarray, pvalues: dict[str, np.ndarray], erro
         plot_pval_model(spots, pval, color=c, label=" ".join(model.split("_")).title())
 
         # Limit x to the
-        max_x = max(max_x, *spots[np.where(pval.mean(axis=0) + pval.std(axis=0) > 1e-4)])
+        max_x = max(max_x, *spots[np.where(pval.mean(axis=0) + pval.std(axis=0) > 1e-3)])
         # Limit y to the top of the highest fill_between
         max_y = max(max_y, (pval.mean(axis=0) + pval.std(axis=0)).max())
 
@@ -370,7 +370,7 @@ def plot_pvals_mm(spots: list | np.ndarray, pvalues: dict[str, np.ndarray], erro
 
     plt.xlim(np.min(spots), max_x)
     plt.ylim(0, max_y)
-    plt.legend(title=f"{error_mm} mm Error")
+    plt.legend()
 
     if output_path is not None:
         save_fig(fig, output_path)
