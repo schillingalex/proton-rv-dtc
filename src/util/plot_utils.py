@@ -370,6 +370,8 @@ def plot_pvals_mm(spots: list | np.ndarray, pvalues: dict[str, np.ndarray], erro
 
     plt.xlim(np.min(spots), max_x)
     plt.ylim(0, max_y)
+    plt.xlabel("Treated spots")
+    plt.ylabel("p-value")
     plt.legend()
 
     if output_path is not None:
