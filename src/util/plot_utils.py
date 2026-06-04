@@ -108,8 +108,8 @@ def plot_errors_in_true_intervals(ae: np.ndarray, y_true: np.ndarray) -> plt.Fig
         if len(errors_in_interval) > 0:
             intervals.append((i + 0.5, errors_in_interval.mean()))
     intervals = np.array(intervals)
-    fig = plt.figure(figsize=(12, 8))
-    plt.scatter(intervals[:, 0], intervals[:, 1], s=10)
+    fig = plt.figure(figsize=(10, 9))
+    plt.scatter(intervals[:, 0], intervals[:, 1], s=15)
     plt.ylim(0, np.ceil(np.max(intervals[:, 1])))
     plt.xlabel("Ground truth (mm)")
     plt.ylabel("Mean absolute error in bin (mm)")
